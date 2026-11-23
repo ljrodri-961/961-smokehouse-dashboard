@@ -1,0 +1,3354 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>961 Smoke House | Analytics & Control de Ventas (Live Sheets)</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Inter & Oswald (para encabezados estilo Smokehouse) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Oswald', 'sans-serif'],
+          },
+          colors: {
+            charcoal: {
+              950: '#0B0B0D',
+              900: '#121215',
+              850: '#18181C',
+              800: '#1E1E24',
+              700: '#2A2A32',
+            },
+            ember: {
+              400: '#F59E0B',
+              500: '#D97706',
+              600: '#B45309',
+            },
+            smoke: {
+              red: '#DC2626',
+              crimson: '#991B1B',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Personalización de scrollbars y efectos sutiles */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(217, 119, 6, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(217, 119, 6, 0.65);
+    }
+
+    .ember-glow {
+      box-shadow: 0 0 25px -5px rgba(217, 119, 6, 0.18);
+    }
+
+    .glass-card {
+      backdrop-filter: blur(12px);
+    }
+
+    /* Transiciones suaves de tema */
+    body, div, header, table, select, input, button {
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+    }
+  </style>
+</head>
+<body class="bg-stone-100 text-stone-900 dark:bg-charcoal-950 dark:text-stone-100 font-sans antialiased min-h-screen selection:bg-ember-500 selection:text-white">
+
+  <!-- Toast / Notificación flotante (Reemplazo elegante de alert) -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Barra Superior de Navegación & Branding -->
+  <header class="sticky top-0 z-30 border-b border-stone-200/80 dark:border-charcoal-700/80 bg-white/90 dark:bg-charcoal-900/90 glass-card">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        
+        <!-- Logo y Título -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-ember-500 via-smoke-red to-charcoal-900 p-0.5 shadow-lg ember-glow shrink-0">
+              <div class="w-full h-full bg-charcoal-900 rounded-[10px] flex items-center justify-center">
+                <!-- Icono SVG estilo llama/ahumador -->
+                <svg class="w-6 h-6 text-ember-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 2c.5 3.5-1.5 5.5-1.5 8 0 1.5 1 2.5 2.5 2.5s2.5-1 2.5-2.5c0-1-.5-2-1-3 2.5 1.5 4.5 4.5 4.5 8 0 4.418-3.582 7-8 7s-8-2.582-8-7c0-3.8 2.5-7 5-9-.5 1.5 0 3 1 3.5-.5-2.5 1-5 3-7.5z"/>
+                </svg>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="font-display text-xl sm:text-2xl font-bold tracking-wide uppercase text-stone-900 dark:text-white">
+                  961 <span class="text-ember-500">SMOKE HOUSE</span>
+                </h1>
+                <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                  SHEETS LIVE v4.6
+                </span>
+              </div>
+              <p class="text-xs text-stone-500 dark:text-stone-400">
+                Inteligencia de Ventas • Proteínas (Kg) & Guarniciones • 11 FDS Base + Google Sheets
+              </p>
+            </div>
+          </div>
+
+          <!-- Botones móviles de sincronización, diagnóstico, tema y agregar -->
+          <div class="flex items-center gap-2 lg:hidden">
+            <button onclick="syncFromGoogleSheets(true)" title="Sincronizar con Google Sheets" class="p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-500">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+            <button onclick="openDiagModal()" title="Ver diagnóstico de Google Sheets" class="p-2.5 rounded-xl border border-stone-200 dark:border-charcoal-700 bg-stone-50 dark:bg-charcoal-800 text-amber-500">
+              <i data-lucide="activity" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleTheme()" title="Cambiar tema claro/oscuro" class="p-2.5 rounded-xl border border-stone-200 dark:border-charcoal-700 bg-stone-50 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 hover:border-ember-500">
+              <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-ember-400"></i>
+              <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+            </button>
+            <button onclick="openAddModal()" class="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-gradient-to-r from-ember-500 to-smoke-red text-white text-xs font-semibold shadow-md">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>FDS</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Filtros Dinámicos -->
+        <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          
+          <!-- Filtro Fin de Semana -->
+          <div class="flex-1 min-w-[165px] sm:flex-initial">
+            <label for="filterFDS" class="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1 ml-1">Fin de Semana</label>
+            <div class="relative">
+              <select id="filterFDS" onchange="onSingleFdsChange()" class="w-full sm:w-48 appearance-none pl-3 pr-8 py-2 rounded-xl text-xs sm:text-sm font-medium bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-ember-500 cursor-pointer">
+                <option value="ALL">Todos los FDS (11)</option>
+              </select>
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-ember-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            </div>
+          </div>
+
+          <!-- Filtro Proteína -->
+          <div class="flex-1 min-w-[165px] sm:flex-initial">
+            <label for="filterProtein" class="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1 ml-1">Corte / Proteína</label>
+            <div class="relative">
+              <select id="filterProtein" onchange="applyFilters()" class="w-full sm:w-52 appearance-none pl-3 pr-8 py-2 rounded-xl text-xs sm:text-sm font-medium bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-ember-500 cursor-pointer">
+                <option value="ALL">Todas las Proteínas (13)</option>
+              </select>
+              <i data-lucide="flame" class="w-3.5 h-3.5 text-smoke-red absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            </div>
+          </div>
+
+          <!-- Filtro Día de la Semana -->
+          <div class="w-full sm:w-auto">
+            <label class="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1 ml-1">Día Operativo</label>
+            <div class="grid grid-cols-4 sm:flex rounded-xl p-1 bg-stone-200/70 dark:bg-charcoal-800 border border-stone-300/70 dark:border-charcoal-700">
+              <button type="button" data-day="ALL" onclick="setDayFilter('ALL')" class="day-btn px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-ember-500 text-white shadow-sm">Todos</button>
+              <button type="button" data-day="V" onclick="setDayFilter('V')" class="day-btn px-2.5 py-1 rounded-lg text-xs font-medium text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white">Vie</button>
+              <button type="button" data-day="S" onclick="setDayFilter('S')" class="day-btn px-2.5 py-1 rounded-lg text-xs font-medium text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white">Sáb</button>
+              <button type="button" data-day="D" onclick="setDayFilter('D')" class="day-btn px-2.5 py-1 rounded-lg text-xs font-medium text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white">Dom</button>
+            </div>
+          </div>
+
+          <!-- Acciones Desktop -->
+          <div class="hidden lg:flex items-end gap-2 pt-4">
+            <button id="btnSyncSheets" onclick="syncFromGoogleSheets(true)" title="Sincronizar ahora con Google Sheets" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold tracking-wide uppercase transition">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span>Sync Sheets</span>
+            </button>
+            <button onclick="openDiagModal()" title="Ver diagnóstico de conexión y filas leídas de Google Sheets" class="p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition">
+              <i data-lucide="activity" class="w-4 h-4"></i>
+            </button>
+            <button onclick="resetFilters()" title="Restablecer filtros" class="p-2.5 rounded-xl border border-stone-300 dark:border-charcoal-700 bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 hover:border-ember-500 hover:text-ember-500 transition">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleTheme()" title="Alternar Modo Claro / Oscuro" class="p-2.5 rounded-xl border border-stone-300 dark:border-charcoal-700 bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 hover:border-ember-500 transition">
+              <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-ember-400"></i>
+              <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+            </button>
+            <button onclick="openAddModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-ember-500 to-smoke-red hover:from-ember-400 hover:to-red-500 text-white text-xs font-bold tracking-wide uppercase shadow-lg shadow-ember-600/20 transition transform active:scale-95">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>Agregar Reporte FDS</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Selector de Vista Principal (Cortes vs Hamburguesas & Sándwiches) + Estado de Google Sheets -->
+      <div class="mt-3 pt-3 border-t border-stone-200/70 dark:border-charcoal-800 flex flex-wrap items-center justify-between gap-3">
+        <div class="inline-flex rounded-xl p-1 bg-stone-200/80 dark:bg-charcoal-800 border border-stone-300/70 dark:border-charcoal-700">
+          <button id="viewTabProteins" onclick="switchMainView('proteins')" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide bg-gradient-to-r from-ember-500 to-smoke-red text-white shadow-sm transition">
+            <i data-lucide="beef" class="w-3.5 h-3.5"></i>
+            <span>Cortes & Proteínas (Kg)</span>
+          </button>
+          <button id="viewTabBurgers" onclick="switchMainView('burgers')" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white transition">
+            <i data-lucide="sandwich" class="w-3.5 h-3.5"></i>
+            <span>Hamburguesas & Sándwiches (Unds)</span>
+            <span id="burgerPeriodBadge" class="px-1.5 py-0.2 rounded-full text-[10px] bg-ember-500/20 text-ember-600 dark:text-ember-400 font-bold">18.10 – Live</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2 text-[11px]">
+          <button type="button" onclick="openDiagModal()" id="liveSyncStatus" title="Haz clic para ver el detalle de la sincronización" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-stone-200/70 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 font-medium text-stone-600 dark:text-stone-300 hover:border-ember-500 cursor-pointer">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span>Conectando con Google Sheets...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenido Principal -->
+  <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- BARRA DE FILTRO POR RANGO DE FECHAS (DESDE - HASTA + ACCESOS RÁPIDOS) -->
+    <section id="dateRangeFilterBar" class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 px-4 py-3.5 shadow-sm">
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+
+        <!-- Selectores Desde / Hasta -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-300 mr-1">
+            <span class="p-1.5 rounded-lg bg-ember-500/15 text-ember-500">
+              <i data-lucide="calendar-range" class="w-4 h-4"></i>
+            </span>
+            <span>Rango de Fechas:</span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <label for="filterRangeStart" class="text-[11px] font-semibold text-stone-500 dark:text-stone-400">Desde</label>
+            <select id="filterRangeStart" onchange="onRangeChange('start')" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-ember-500 cursor-pointer">
+            </select>
+          </div>
+
+          <span class="text-stone-400 text-xs font-bold">→</span>
+
+          <div class="flex items-center gap-1.5">
+            <label for="filterRangeEnd" class="text-[11px] font-semibold text-stone-500 dark:text-stone-400">Hasta</label>
+            <select id="filterRangeEnd" onchange="onRangeChange('end')" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-ember-500 cursor-pointer">
+            </select>
+          </div>
+        </div>
+
+        <!-- Botones rápidos de período (generados dinámicamente según los meses del Sheet) -->
+        <div id="quickRangeButtons" class="flex flex-wrap items-center gap-1.5">
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VISTA A: CORTES & PROTEÍNAS (KG)                                      -->
+    <!-- ===================================================================== -->
+    <div id="proteinsViewSection" class="space-y-6">
+
+    <!-- Banner de Contexto Dinámico -->
+    <div id="contextBanner" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-ember-500/10 via-smoke-red/5 to-transparent border border-ember-500/25">
+      <div class="flex items-center gap-2.5 text-xs sm:text-sm">
+        <span class="w-2 h-2 rounded-full bg-ember-500 animate-pulse shrink-0"></span>
+        <span id="contextText" class="font-medium text-stone-700 dark:text-stone-200">
+          Mostrando acumulado histórico de <strong>11 Fines de Semana</strong> • Todas las proteínas • Días completos (Vie-Dom)
+        </span>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+        <span id="noteBadge" class="hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+          <i data-lucide="info" class="w-3.5 h-3.5"></i>
+          FDS 13.09 sin desglose diario (incluido en totales)
+        </span>
+        <button onclick="resetFilters()" id="btnClearFilters" class="hidden text-ember-600 dark:text-ember-400 font-semibold hover:underline">
+          Limpiar filtros
+        </button>
+      </div>
+    </div>
+
+    <!-- 1. TARJETAS KPI SUPERIORES -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+      
+      <!-- KPI 1: Volumen Total Vendido -->
+      <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm hover:border-ember-500/50 transition">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Volumen Total Vendido</p>
+            <div class="mt-2 flex items-baseline gap-2">
+              <h2 id="kpiTotalKg" class="font-display text-3xl sm:text-4xl font-bold text-stone-900 dark:text-white">0.00</h2>
+              <span class="text-sm font-bold text-ember-500">Kg</span>
+            </div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-ember-500/15 text-ember-500">
+            <i data-lucide="scale" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+          <span id="kpiTotalSublabel" class="text-stone-500 dark:text-stone-400">Promedio por FDS</span>
+          <span id="kpiTotalBadge" class="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            --
+          </span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Corte Líder -->
+      <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm hover:border-smoke-red/50 transition">
+        <div class="flex items-start justify-between">
+          <div class="min-w-0 pr-2">
+            <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Corte Líder (Top #1)</p>
+            <h2 id="kpiTopCutName" class="font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white mt-2 truncate">Brisket (Res)</h2>
+          </div>
+          <div class="p-2.5 rounded-xl bg-smoke-red/15 text-smoke-red shrink-0">
+            <i data-lucide="award" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+          <span id="kpiTopCutKg" class="font-semibold text-stone-700 dark:text-stone-300">0.00 Kg</span>
+          <span id="kpiTopCutShare" class="font-bold px-2 py-0.5 rounded-lg bg-ember-500/15 text-ember-600 dark:text-ember-400">
+            0.0% del mix
+          </span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Mejor Día de Venta -->
+      <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm hover:border-ember-500/50 transition">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Mejor Día de Venta</p>
+            <h2 id="kpiBestDayName" class="font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white mt-2">Domingo</h2>
+          </div>
+          <div class="p-2.5 rounded-xl bg-amber-500/15 text-amber-500">
+            <i data-lucide="flame" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+          <span id="kpiBestDayKg" class="font-semibold text-stone-700 dark:text-stone-300">0.00 Kg</span>
+          <span id="kpiBestDayShare" class="font-bold px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            0.0% peso semanal
+          </span>
+        </div>
+      </div>
+
+      <!-- KPI 4: Volumen Promedio Diario -->
+      <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm hover:border-ember-500/50 transition">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Despacho Promedio Diario</p>
+            <div class="mt-2 flex items-baseline gap-2">
+              <h2 id="kpiDailyAvg" class="font-display text-3xl sm:text-4xl font-bold text-stone-900 dark:text-white">0.00</h2>
+              <span class="text-sm font-bold text-ember-500">Kg/día</span>
+            </div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-500">
+            <i data-lucide="trending-up" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+          <span id="kpiDailyDaysCount" class="text-stone-500 dark:text-stone-400">Base: 33 días operativos</span>
+          <span id="kpiPeakFds" class="font-semibold text-stone-700 dark:text-stone-300 truncate max-w-[140px]">Récord: --</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 2. SECCIÓN DE GRÁFICOS PRINCIPALES (FILA 1) -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      
+      <!-- Gráfico 1: Evolución Histórica por Fin de Semana (7 cols) -->
+      <div class="lg:col-span-7 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm flex flex-col">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-ember-500"></span>
+              Evolución Histórica por Fin de Semana (Kg)
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Tendencia de volumen total vs. línea de promedio histórico • Haz clic en una barra para filtrar ese FDS</p>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="inline-flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
+              <span class="w-3 h-3 rounded-sm bg-ember-500"></span> FDS
+            </span>
+            <span class="inline-flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
+              <span class="w-3 h-0.5 bg-smoke-red"></span> Promedio
+            </span>
+          </div>
+        </div>
+        <div class="relative flex-1 min-h-[290px] w-full">
+          <canvas id="chartHistory"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico 2: Distribución por Día de la Semana (5 cols) -->
+      <div class="lg:col-span-5 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm flex flex-col">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-smoke-red"></span>
+              Curva Operativa: Vie vs Sáb vs Dom
+            </h3>
+            <p id="chartDaysSubtitle" class="text-xs text-stone-500 dark:text-stone-400">Distribución de Kg por día para los Top 5 cortes (excluye FDS 13.09 sin desglose)</p>
+          </div>
+          <div class="flex rounded-lg p-0.5 bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 text-[11px]">
+            <button id="btnDayModeCut" onclick="setDayChartMode('byCut')" class="px-2 py-1 rounded-md font-semibold bg-ember-500 text-white">Por Corte</button>
+            <button id="btnDayModeTotal" onclick="setDayChartMode('byTotal')" class="px-2 py-1 rounded-md font-medium text-stone-600 dark:text-stone-300">Total Día</button>
+          </div>
+        </div>
+        <div class="relative flex-1 min-h-[290px] w-full">
+          <canvas id="chartDays"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 3. SECCIÓN DE GRÁFICOS SECUNDARIOS (FILA 2) -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      
+      <!-- Gráfico 3: Ranking y Mix de Proteínas (6 cols) -->
+      <div class="lg:col-span-6 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-amber-400"></span>
+              Ranking & Participación del Mix de Proteínas
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Volumen acumulado (Kg) y cuota de participación (%) según filtros activos</p>
+          </div>
+        </div>
+        <div class="relative flex-1 min-h-[340px] w-full">
+          <canvas id="chartRanking"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico 4: Comparativa de Guarniciones e Insumos Clave (6 cols) -->
+      <div class="lg:col-span-6 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm flex flex-col">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-emerald-500"></span>
+              Guarniciones, Wings & Dressings (Oct - Nov)
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Consumo auditado en 5 FDS clave (04.10, 18.10, 25.10, 01.11, 08.11)</p>
+          </div>
+          <select id="sidesCategoryFilter" onchange="renderSidesChart()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-700 dark:text-stone-200 focus:outline-none focus:border-ember-500">
+            <option value="ALL">Todos los Sides e Insumos</option>
+            <option value="SIDES">Solo Sides & Wings (Kg)</option>
+            <option value="DRESSINGS">Solo Dressings (L / Kg)</option>
+          </select>
+        </div>
+        <div class="relative flex-1 min-h-[340px] w-full">
+          <canvas id="chartSides"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 4. TABLA DETALLADA E INTERACTIVA -->
+    <section class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 shadow-sm overflow-hidden">
+      <div class="p-5 border-b border-stone-200 dark:border-charcoal-700/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="table-2" class="w-5 h-5 text-ember-500"></i>
+            Desglose Detallado de Ventas por Proteína
+          </h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+            Haz clic en los encabezados para ordenar • Selecciona cualquier corte para filtrar todo el dashboard
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Buscador de corte -->
+          <div class="relative flex-1 sm:flex-initial">
+            <i data-lucide="search" class="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="tableSearch" oninput="renderTable()" placeholder="Buscar corte (ej. Brisket)..." class="w-full sm:w-56 pl-9 pr-3 py-2 rounded-xl text-xs bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-ember-500" />
+          </div>
+
+          <!-- Exportar CSV -->
+          <button onclick="exportToCSV()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-stone-300 dark:border-charcoal-700 bg-stone-50 dark:bg-charcoal-800 text-stone-700 dark:text-stone-200 hover:border-ember-500 hover:text-ember-500 transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Exportar CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-stone-50 dark:bg-charcoal-900/90 text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 border-b border-stone-200 dark:border-charcoal-700">
+              <th class="py-3.5 px-4 cursor-pointer hover:text-ember-500 select-none" onclick="sortTable('name')">
+                <div class="flex items-center gap-1">Proteína / Corte <i data-lucide="arrow-up-down" class="w-3 h-3"></i></div>
+              </th>
+              <th class="py-3.5 px-4 text-right cursor-pointer hover:text-ember-500 select-none" onclick="sortTable('V')">
+                <div class="flex items-center justify-end gap-1">Viernes (Kg) <i data-lucide="arrow-up-down" class="w-3 h-3"></i></div>
+              </th>
+              <th class="py-3.5 px-4 text-right cursor-pointer hover:text-ember-500 select-none" onclick="sortTable('S')">
+                <div class="flex items-center justify-end gap-1">Sábado (Kg) <i data-lucide="arrow-up-down" class="w-3 h-3"></i></div>
+              </th>
+              <th class="py-3.5 px-4 text-right cursor-pointer hover:text-ember-500 select-none" onclick="sortTable('D')">
+                <div class="flex items-center justify-end gap-1">Domingo (Kg) <i data-lucide="arrow-up-down" class="w-3 h-3"></i></div>
+              </th>
+              <th class="py-3.5 px-4 text-right cursor-pointer hover:text-ember-500 select-none" onclick="sortTable('total')">
+                <div class="flex items-center justify-end gap-1 text-ember-600 dark:text-ember-400">Total (Kg) <i data-lucide="arrow-up-down" class="w-3 h-3"></i></div>
+              </th>
+              <th class="py-3.5 px-4 text-right cursor-pointer hover:text-ember-500 select-none" onclick="sortTable('share')">
+                <div class="flex items-center justify-end gap-1">% Mix <i data-lucide="arrow-up-down" class="w-3 h-3"></i></div>
+              </th>
+              <th id="thVariation" class="py-3.5 px-4 text-right cursor-pointer hover:text-ember-500 select-none" onclick="sortTable('variation')">
+                <div class="flex items-center justify-end gap-1">Var. vs FDS Ant. <i data-lucide="arrow-up-down" class="w-3 h-3"></i></div>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="proteinTableBody" class="divide-y divide-stone-100 dark:divide-charcoal-800 text-xs sm:text-sm">
+            <!-- Filas generadas por JS -->
+          </tbody>
+          <tfoot id="proteinTableFoot" class="bg-stone-100/80 dark:bg-charcoal-900 font-bold text-xs sm:text-sm border-t-2 border-ember-500/40">
+            <!-- Total general -->
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    </div> <!-- Fin #proteinsViewSection -->
+
+    <!-- ===================================================================== -->
+    <!-- VISTA B: HAMBURGUESAS & SÁNDWICHES (UNIDADES | 18.10 - LIVE)          -->
+    <!-- ===================================================================== -->
+    <div id="burgersViewSection" class="hidden space-y-6">
+
+      <!-- Banner de Contexto Burgers -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-smoke-red/10 to-transparent border border-amber-500/30">
+        <div class="flex items-center gap-2.5 text-xs sm:text-sm">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+          <span id="burgersContextText" class="font-medium text-stone-700 dark:text-stone-200">
+            Mostrando <strong>Hamburguesas & Sándwiches</strong> • Período: <strong>18/10 en adelante</strong>
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <select id="filterBurgerCategory" onchange="renderBurgersDashboard()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-ember-500">
+            <option value="ALL">Todos (Burgers + Sándwiches)</option>
+            <option value="BURGER">Solo Hamburguesas (5)</option>
+            <option value="SANDWICH">Solo Sándwiches (5)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- KPIs Burgers & Sándwiches -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+        <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Unidades Vendidas</p>
+              <div class="mt-2 flex items-baseline gap-2">
+                <h2 id="kpiBurgersTotal" class="font-display text-3xl sm:text-4xl font-bold text-stone-900 dark:text-white">317</h2>
+                <span class="text-sm font-bold text-ember-500">Unds</span>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-ember-500/15 text-ember-500">
+              <i data-lucide="sandwich" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+            <span class="text-stone-500 dark:text-stone-400">Promedio semanal</span>
+            <span id="kpiBurgersAvgFds" class="font-bold px-2 py-0.5 rounded-lg bg-ember-500/15 text-ember-600 dark:text-ember-400">63.4 Unds/FDS</span>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div class="min-w-0 pr-2">
+              <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Producto Estrella (#1)</p>
+              <h2 id="kpiBurgersTopName" class="font-display text-xl sm:text-2xl font-bold text-stone-900 dark:text-white mt-2 truncate">961 American Burger</h2>
+            </div>
+            <div class="p-2.5 rounded-xl bg-smoke-red/15 text-smoke-red shrink-0">
+              <i data-lucide="award" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+            <span id="kpiBurgersTopQty" class="font-semibold text-stone-700 dark:text-stone-300">73 Unds vendidas</span>
+            <span id="kpiBurgersTopShare" class="font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">23.0% del total</span>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Split Burgers vs Sándwiches</p>
+              <h2 id="kpiBurgersSplitRatio" class="font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white mt-2">67.8% / 32.2%</h2>
+            </div>
+            <div class="p-2.5 rounded-xl bg-amber-500/15 text-amber-500">
+              <i data-lucide="pie-chart" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+            <span id="kpiBurgersCatCounts" class="font-semibold text-stone-700 dark:text-stone-300">215 Burgers • 102 Sándw.</span>
+            <span class="font-bold text-amber-500">Mix Línea</span>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">Día Pico de Demanda</p>
+              <h2 id="kpiBurgersBestDay" class="font-display text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white mt-2">Domingo</h2>
+            </div>
+            <div class="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-500">
+              <i data-lucide="flame" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-xs">
+            <span id="kpiBurgersBestDayQty" class="font-semibold text-stone-700 dark:text-stone-300">142 Unds acumuladas</span>
+            <span id="kpiBurgersBestDayShare" class="font-bold px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">44.8% peso</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Gráficos Burgers & Sándwiches -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div class="lg:col-span-6 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm flex flex-col">
+          <div class="mb-4">
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-ember-500"></span>
+              Evolución Semanal por Día (18/10 en adelante)
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Unidades vendidas por Viernes, Sábado y Domingo en cada fin de semana</p>
+          </div>
+          <div class="relative flex-1 min-h-[300px] w-full">
+            <canvas id="chartBurgersHistory"></canvas>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-5 shadow-sm flex flex-col">
+          <div class="mb-4">
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-smoke-red"></span>
+              Ranking de Hamburguesas & Sándwiches (Unds)
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Participación por producto según el Fin de Semana y Día seleccionados</p>
+          </div>
+          <div class="relative flex-1 min-h-[300px] w-full">
+            <canvas id="chartBurgersRanking"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabla Detallada de Hamburguesas y Sándwiches -->
+      <section class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-stone-200 dark:border-charcoal-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide text-stone-900 dark:text-white flex items-center gap-2">
+              <i data-lucide="list-ordered" class="w-5 h-5 text-ember-500"></i>
+              Desglose de Unidades: Hamburguesas & Sándwiches
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+              Registro operativo del 18/10 en adelante • Desglose por Viernes, Sábado y Domingo
+            </p>
+          </div>
+          <button onclick="exportBurgersCSV()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-stone-300 dark:border-charcoal-700 bg-stone-50 dark:bg-charcoal-800 text-stone-700 dark:text-stone-200 hover:border-ember-500 hover:text-ember-500 transition self-start sm:self-auto">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Exportar CSV Burgers</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-stone-50 dark:bg-charcoal-900/90 text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 border-b border-stone-200 dark:border-charcoal-700">
+                <th class="py-3.5 px-4">Producto / Hamburguesa</th>
+                <th class="py-3.5 px-4">Línea</th>
+                <th class="py-3.5 px-4 text-right">Viernes</th>
+                <th class="py-3.5 px-4 text-right">Sábado</th>
+                <th class="py-3.5 px-4 text-right">Domingo</th>
+                <th class="py-3.5 px-4 text-right text-ember-600 dark:text-ember-400">Total (Unds)</th>
+                <th class="py-3.5 px-4 text-right">% Mix</th>
+              </tr>
+            </thead>
+            <tbody id="burgersTableBody" class="divide-y divide-stone-100 dark:divide-charcoal-800 text-xs sm:text-sm"></tbody>
+            <tfoot id="burgersTableFoot" class="bg-stone-100/80 dark:bg-charcoal-900 font-bold text-xs sm:text-sm border-t-2 border-ember-500/40"></tfoot>
+          </table>
+        </div>
+      </section>
+
+    </div> <!-- Fin #burgersViewSection -->
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-stone-500 dark:text-stone-400 border-t border-stone-200/60 dark:border-charcoal-800 mt-8">
+    <p><strong>961 Smoke House</strong> • Sistema Interno de Inteligencia Operativa y Control de Ventas (v4.6 Rango Fechas)</p>
+    <div class="flex items-center gap-4">
+      <button onclick="openDiagModal()" class="text-ember-500 hover:underline font-medium">Conexión / Diagnóstico Sheets</button>
+      <button onclick="resetCustomData()" class="text-stone-400 hover:text-smoke-red transition underline">Restaurar datos originales</button>
+      <span>Sep – Nov 2026</span>
+    </div>
+  </footer>
+
+  <!-- MODAL: CONEXIÓN DIRECTA Y DIAGNÓSTICO DE GOOGLE SHEETS -->
+  <div id="diagModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="bg-white dark:bg-charcoal-900 border border-stone-200 dark:border-charcoal-700 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-stone-200 dark:border-charcoal-800 flex items-center justify-between bg-stone-50 dark:bg-charcoal-850">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+            <i data-lucide="activity" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase text-stone-900 dark:text-white">Conexión Directa & Diagnóstico Google Sheets</h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Conexión oficial sin proxy (funciona en PC local y web al instante)</p>
+          </div>
+        </div>
+        <button onclick="closeDiagModal()" class="p-2 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-200/50 dark:hover:bg-charcoal-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-1 space-y-5">
+        <!-- Conexión Directa Oficial (Sin Proxies / Sin CORS) -->
+        <div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                Conexión Directa Oficial de Google (Recomendada — 0% Proxies / 0% CORS)
+              </h4>
+              <p class="text-xs text-stone-600 dark:text-stone-300 mt-1">
+                1) En tu Google Sheet haz clic en <strong>Compartir → Cualquier persona con el enlace (Lector)</strong>.<br>
+                2) Copia el enlace normal de la barra de direcciones (el que tiene <code class="px-1 py-0.5 rounded bg-black/15 dark:bg-black/40">/spreadsheets/d/.../edit</code>) y pégalo aquí:
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input type="url" id="directSheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/1ABC...XYZ/edit#gid=0" class="flex-1 px-3 py-2 rounded-xl text-xs bg-white dark:bg-charcoal-900 border border-stone-300 dark:border-charcoal-700 text-stone-900 dark:text-white focus:outline-none focus:border-emerald-500" />
+            <button type="button" onclick="saveDirectSheetUrlAndSync()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wide shadow transition shrink-0">
+              Conectar Directo
+            </button>
+          </div>
+          <p id="directSheetStatusHint" class="text-[11px] text-stone-600 dark:text-stone-400"></p>
+        </div>
+
+        <!-- Diagnóstico Técnico -->
+        <div id="diagContent" class="space-y-4 text-xs font-mono"></div>
+      </div>
+
+      <div class="px-6 py-3.5 border-t border-stone-200 dark:border-charcoal-800 bg-stone-50 dark:bg-charcoal-850 flex flex-wrap items-center justify-between gap-2">
+        <button onclick="copyDiagText()" class="px-3.5 py-2 rounded-xl border border-stone-300 dark:border-charcoal-700 text-xs font-semibold text-stone-700 dark:text-stone-200 hover:border-ember-500 transition">
+          Copiar diagnóstico
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="syncFromGoogleSheets(true)" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase transition">
+            Reintentar Sync
+          </button>
+          <button onclick="closeDiagModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-200/70 dark:hover:bg-charcoal-800">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AGREGAR NUEVO REPORTE FDS -->
+  <div id="addFdsModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="bg-white dark:bg-charcoal-900 border border-stone-200 dark:border-charcoal-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-stone-200 dark:border-charcoal-800 flex items-center justify-between bg-stone-50 dark:bg-charcoal-850">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-ember-500/20 text-ember-500 flex items-center justify-center">
+            <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase text-stone-900 dark:text-white">Registrar Nuevo Reporte FDS</h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Ingresa manualmente o pega el resumen de cierre semanal (se guarda en este navegador)</p>
+          </div>
+        </div>
+        <button onclick="closeAddModal()" class="p-2 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-200/50 dark:hover:bg-charcoal-800">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Pestañas del Modal -->
+      <div class="px-6 pt-3 border-b border-stone-200 dark:border-charcoal-800 flex gap-4 bg-stone-50/50 dark:bg-charcoal-900">
+        <button id="tabManual" onclick="switchModalTab('manual')" class="pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-ember-500 text-ember-500">
+          Formulario por Corte
+        </button>
+        <button id="tabPaste" onclick="switchModalTab('paste')" class="pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200">
+          Pegado Rápido (Texto)
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto flex-1 space-y-5">
+        
+        <!-- Identificador del FDS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-1">Código FDS (ej. FDS 22.11)</label>
+            <input type="text" id="newFdsId" placeholder="FDS 22.11" class="w-full px-3.5 py-2 rounded-xl text-sm bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-900 dark:text-white focus:outline-none focus:border-ember-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 dark:text-stone-300 mb-1">Rango de Fechas (ej. 20-22 Nov)</label>
+            <input type="text" id="newFdsRange" placeholder="20-22 Nov" class="w-full px-3.5 py-2 rounded-xl text-sm bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-900 dark:text-white focus:outline-none focus:border-ember-500" />
+          </div>
+        </div>
+
+        <!-- Vista 1: Formulario Manual -->
+        <div id="viewManual" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-stone-500">Desglose por Proteína (Kg)</span>
+            <span id="modalLiveTotal" class="text-xs font-bold text-ember-500">Total calculado: 0.000 Kg</span>
+          </div>
+          <div class="border border-stone-200 dark:border-charcoal-700 rounded-xl overflow-hidden">
+            <table class="w-full text-xs">
+              <thead class="bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 font-semibold">
+                <tr>
+                  <th class="py-2 px-3 text-left">Proteína</th>
+                  <th class="py-2 px-3 text-right w-24">Viernes</th>
+                  <th class="py-2 px-3 text-right w-24">Sábado</th>
+                  <th class="py-2 px-3 text-right w-24">Domingo</th>
+                  <th class="py-2 px-3 text-right w-24">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody id="modalProteinsInputs" class="divide-y divide-stone-100 dark:divide-charcoal-800">
+                <!-- Generado dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vista 2: Pegado Rápido -->
+        <div id="viewPaste" class="hidden space-y-3">
+          <p class="text-xs text-stone-500 dark:text-stone-400">
+            Pega las líneas de proteínas en formato estándar (ejemplo: <code class="text-ember-500">Brisket: V 4.10, S 9.20, D 12.50</code> o <code class="text-ember-500">Porkbelly: 21.5</code>).
+          </p>
+          <textarea id="pasteRawText" rows="8" placeholder="Brisket: V 4.50, S 9.80, D 13.20&#10;Porkbelly: V 3.80, S 7.50, D 8.90&#10;Spare Ribs: V 3.10, S 6.40, D 7.80" class="w-full p-3.5 rounded-xl text-xs font-mono bg-stone-100 dark:bg-charcoal-800 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-ember-500"></textarea>
+          <button type="button" onclick="parsePastedText()" class="px-4 py-2 rounded-xl bg-stone-800 dark:bg-charcoal-700 text-white text-xs font-semibold hover:bg-ember-600 transition">
+            Procesar y Cargar en Formulario
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-stone-200 dark:border-charcoal-800 bg-stone-50 dark:bg-charcoal-850 flex items-center justify-end gap-3">
+        <button onclick="closeAddModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-200/70 dark:hover:bg-charcoal-800">
+          Cancelar
+        </button>
+        <button onclick="saveNewFDS()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-ember-500 to-smoke-red text-white text-xs font-bold uppercase tracking-wide shadow-md hover:opacity-95 transition">
+          Guardar y Actualizar Dashboard
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SCRIPT PRINCIPAL -->
+  <script>
+    /**
+     * =========================================================================
+     * 0. CONEXIÓN EN VIVO A GOOGLE SHEETS (DIRECTO OFICIAL + RESPALDO CSV)
+     * =========================================================================
+     */
+    // Enlace directo oficial de tu Google Sheet (funciona sin proxies incluso en PC local file://)
+    const DEFAULT_DIRECT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1d_c9reoHFR953f0C12mjOlEAFLRchiac6V5atEyrVDU/edit?gid=0#gid=0";
+    const GID_PROTEINAS = "0";
+    const GID_BURGERS   = "2017975002";
+
+    // Enlaces CSV publicados (respaldo automático)
+    const SHEETS_CSV_PROTEINAS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRSaA59IQ4Mf9G3Tx41NcWZId5OaeruAK7LAQspcXPzzLbpTuA-QCKvKE9Trq-KWT5TK6PWi0bt1pBu/pub?gid=0&single=true&output=csv";
+    const SHEETS_CSV_BURGERS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRSaA59IQ4Mf9G3Tx41NcWZId5OaeruAK7LAQspcXPzzLbpTuA-QCKvKE9Trq-KWT5TK6PWi0bt1pBu/pub?gid=2017975002&single=true&output=csv";
+    const DIRECT_SHEET_STORAGE_KEY = "961_smokehouse_direct_sheet_url_v45";
+    const AUTO_SYNC_INTERVAL_MS = 2 * 60 * 1000; // Revisa cada 2 minutos automáticamente
+
+    /**
+     * =========================================================================
+     * 1. BASE DE DATOS HISTÓRICA REAL DE 961 SMOKE HOUSE (SEP - NOV 2026)
+     *    13 PROTEÍNAS EXACTAS + 11 FDS HISTÓRICOS + 10 BURGERS/SÁNDWICHES
+     * =========================================================================
+     */
+    const ALL_PROTEINS = [
+      "Brisket (Res)",
+      "Porkbelly",
+      "Spare Ribs (Cerdo)",
+      "Short Ribs",
+      "Rodilla de Cochino",
+      "Pastrami",
+      "Churrasco de Pollo",
+      "Ribeye",
+      "Porter T-Bone 961",
+      "Prime Ribs",
+      "Flat-Iron",
+      "Lomito",
+      "Costilla de Cordero"
+    ];
+
+    const INITIAL_FDS_DATA = [
+      {
+        id: "FDS 06.09",
+        range: "4-6 Sep",
+        hasDailyBreakdown: true,
+        reportedTotal: 139.177,
+        proteins: {
+          "Brisket (Res)": { V: 6.13, S: 10.05, D: 17.252, total: 33.432 },
+          "Porkbelly": { V: 3.78, S: 7.06, D: 11.86, total: 22.700 },
+          "Spare Ribs (Cerdo)": { V: 3.12, S: 7.75, D: 9.93, total: 20.800 },
+          "Short Ribs": { V: 2.61, S: 5.74, D: 11.44, total: 19.790 },
+          "Rodilla de Cochino": { V: 0, S: 8.0, D: 8.1, total: 16.100 },
+          "Pastrami": { V: 1.85, S: 4.87, D: 4.37, total: 11.090 },
+          "Ribeye": { V: 1.405, S: 3.015, D: 2.545, total: 6.965 },
+          "Porter T-Bone 961": { V: 0, S: 2.30, D: 1.05, total: 3.350 },
+          "Churrasco de Pollo": { V: 1.0, S: 1.0, D: 1.0, total: 3.000 },
+          "Lomito": { V: 0.30, S: 0.82, D: 0.43, total: 1.550 },
+          "Flat-Iron": { V: 0, S: 0.40, D: 0, total: 0.400 }
+        }
+      },
+      {
+        id: "FDS 13.09",
+        range: "11-13 Sep",
+        hasDailyBreakdown: false,
+        reportedTotal: 131.248,
+        proteins: {
+          "Brisket (Res)": { V: 0, S: 0, D: 0, total: 28.36 },
+          "Porkbelly": { V: 0, S: 0, D: 0, total: 25.73 },
+          "Spare Ribs (Cerdo)": { V: 0, S: 0, D: 0, total: 22.64 },
+          "Short Ribs": { V: 0, S: 0, D: 0, total: 18.05 },
+          "Rodilla de Cochino": { V: 0, S: 0, D: 0, total: 9.97 },
+          "Pastrami": { V: 0, S: 0, D: 0, total: 9.76 },
+          "Churrasco de Pollo": { V: 0, S: 0, D: 0, total: 9.00 },
+          "Ribeye": { V: 0, S: 0, D: 0, total: 4.218 },
+          "Flat-Iron": { V: 0, S: 0, D: 0, total: 3.20 },
+          "Lomito": { V: 0, S: 0, D: 0, total: 0.32 }
+        }
+      },
+      {
+        id: "FDS 20.09",
+        range: "18-20 Sep",
+        hasDailyBreakdown: true,
+        reportedTotal: 123.970,
+        proteins: {
+          "Brisket (Res)": { V: 2.42, S: 11.59, D: 12.15, total: 26.16 },
+          "Porkbelly": { V: 3.37, S: 10.51, D: 9.88, total: 23.76 },
+          "Spare Ribs (Cerdo)": { V: 3.55, S: 9.20, D: 10.26, total: 23.01 },
+          "Short Ribs": { V: 2.00, S: 7.19, D: 7.45, total: 16.64 },
+          "Pastrami": { V: 0.67, S: 3.60, D: 6.83, total: 11.10 },
+          "Ribeye": { V: 0.39, S: 2.88, D: 5.48, total: 8.75 },
+          "Churrasco de Pollo": { V: 1.00, S: 3.50, D: 3.00, total: 7.50 },
+          "Rodilla de Cochino": { V: 0.90, S: 0, D: 2.90, total: 3.80 },
+          "Flat-Iron": { V: 0.87, S: 1.33, D: 1.05, total: 3.25 }
+        }
+      },
+      {
+        id: "FDS 27.09",
+        range: "25-27 Sep",
+        hasDailyBreakdown: true,
+        reportedTotal: 106.170,
+        proteins: {
+          "Brisket (Res)": { V: 4.19, S: 9.49, D: 12.19, total: 25.87 },
+          "Porkbelly": { V: 4.04, S: 7.43, D: 6.92, total: 18.39 },
+          "Spare Ribs (Cerdo)": { V: 2.75, S: 5.86, D: 7.46, total: 16.07 },
+          "Short Ribs": { V: 3.04, S: 6.87, D: 3.37, total: 13.28 },
+          "Pastrami": { V: 1.41, S: 4.87, D: 3.81, total: 10.09 },
+          "Churrasco de Pollo": { V: 4.00, S: 4.00, D: 0.50, total: 8.50 },
+          "Ribeye": { V: 0.85, S: 3.48, D: 1.25, total: 5.58 },
+          "Rodilla de Cochino": { V: 1.70, S: 1.50, D: 1.80, total: 5.00 },
+          "Flat-Iron": { V: 0.25, S: 0.53, D: 1.16, total: 1.94 },
+          "Porter T-Bone 961": { V: 0, S: 0, D: 1.30, total: 1.30 },
+          "Lomito": { V: 0, S: 0.15, D: 0, total: 0.15 }
+        }
+      },
+      {
+        id: "FDS 04.10",
+        range: "2-4 Oct",
+        hasDailyBreakdown: true,
+        reportedTotal: 136.791,
+        proteins: {
+          "Brisket (Res)": { V: 8.238, S: 9.17, D: 14.03, total: 31.438 },
+          "Porkbelly": { V: 9.518, S: 8.58, D: 9.07, total: 27.168 },
+          "Spare Ribs (Cerdo)": { V: 6.77, S: 6.66, D: 8.35, total: 21.78 },
+          "Short Ribs": { V: 3.44, S: 5.16, D: 6.78, total: 15.38 },
+          "Rodilla de Cochino": { V: 3.20, S: 6.30, D: 2.00, total: 11.50 },
+          "Churrasco de Pollo": { V: 0, S: 8.00, D: 1.00, total: 9.00 },
+          "Pastrami": { V: 2.57, S: 2.92, D: 2.63, total: 8.12 },
+          "Porter T-Bone 961": { V: 1.20, S: 3.60, D: 1.00, total: 5.80 },
+          "Ribeye": { V: 0.835, S: 1.29, D: 1.595, total: 3.72 },
+          "Flat-Iron": { V: 0.95, S: 1.11, D: 0.825, total: 2.885 }
+        }
+      },
+      {
+        id: "FDS 11.10",
+        range: "9-11 Oct",
+        hasDailyBreakdown: true,
+        reportedTotal: 92.505,
+        proteins: {
+          "Brisket (Res)": { V: 4.61, S: 9.28, D: 7.24, total: 21.13 },
+          "Porkbelly": { V: 4.08, S: 6.85, D: 7.41, total: 18.34 },
+          "Spare Ribs (Cerdo)": { V: 2.13, S: 4.555, D: 8.03, total: 14.715 },
+          "Churrasco de Pollo": { V: 0.45, S: 6.00, D: 4.50, total: 10.95 },
+          "Short Ribs": { V: 1.42, S: 3.94, D: 5.18, total: 10.54 },
+          "Rodilla de Cochino": { V: 0, S: 6.50, D: 0, total: 6.50 },
+          "Pastrami": { V: 1.52, S: 1.76, D: 1.96, total: 5.24 },
+          "Ribeye": { V: 0, S: 2.03, D: 0.85, total: 2.88 },
+          "Porter T-Bone 961": { V: 0, S: 1.10, D: 0, total: 1.10 },
+          "Flat-Iron": { V: 0.22, S: 0, D: 0.73, total: 0.95 },
+          "Lomito": { V: 0, S: 0.16, D: 0, total: 0.16 }
+        }
+      },
+      {
+        id: "FDS 18.10",
+        range: "16-18 Oct",
+        hasDailyBreakdown: true,
+        reportedTotal: 104.452,
+        proteins: {
+          "Brisket (Res)": { V: 4.22, S: 6.92, D: 11.32, total: 22.46 },
+          "Porkbelly": { V: 3.78, S: 5.94, D: 9.90, total: 19.62 },
+          "Spare Ribs (Cerdo)": { V: 5.25, S: 5.79, D: 8.38, total: 19.42 },
+          "Short Ribs": { V: 2.71, S: 3.77, D: 6.402, total: 12.882 },
+          "Rodilla de Cochino": { V: 0, S: 5.70, D: 5.20, total: 10.90 },
+          "Pastrami": { V: 1.90, S: 1.47, D: 3.00, total: 6.37 },
+          "Ribeye": { V: 0.39, S: 1.25, D: 2.86, total: 4.50 },
+          "Churrasco de Pollo": { V: 1.00, S: 0, D: 3.00, total: 4.00 },
+          "Porter T-Bone 961": { V: 0, S: 0, D: 2.00, total: 2.00 },
+          "Flat-Iron": { V: 0.56, S: 0.11, D: 0.93, total: 1.60 },
+          "Lomito": { V: 0, S: 0.50, D: 0.20, total: 0.70 }
+        }
+      },
+      {
+        id: "FDS 25.10",
+        range: "23-25 Oct",
+        hasDailyBreakdown: true,
+        reportedTotal: 92.105,
+        proteins: {
+          "Brisket (Res)": { V: 5.38, S: 6.795, D: 10.48, total: 22.655 },
+          "Porkbelly": { V: 4.86, S: 4.82, D: 8.59, total: 18.27 },
+          "Spare Ribs (Cerdo)": { V: 3.33, S: 1.22, D: 7.71, total: 12.26 },
+          "Short Ribs": { V: 3.11, S: 3.04, D: 5.49, total: 11.64 },
+          "Churrasco de Pollo": { V: 1.00, S: 4.00, D: 2.00, total: 7.00 },
+          "Pastrami": { V: 1.75, S: 1.28, D: 2.82, total: 5.85 },
+          "Rodilla de Cochino": { V: 0, S: 3.40, D: 1.50, total: 4.90 },
+          "Ribeye": { V: 0.42, S: 0.72, D: 1.705, total: 2.845 },
+          "Porter T-Bone 961": { V: 0, S: 2.10, D: 0.695, total: 2.795 },
+          "Costilla de Cordero": { V: 2.00, S: 0, D: 0, total: 2.00 },
+          "Lomito": { V: 0.53, S: 0.83, D: 0.53, total: 1.89 }
+        }
+      },
+      {
+        id: "FDS 01.11",
+        range: "30 Oct - 1 Nov",
+        hasDailyBreakdown: true,
+        reportedTotal: 107.066,
+        proteins: {
+          "Brisket (Res)": { V: 2.00, S: 10.041, D: 7.65, total: 19.691 },
+          "Spare Ribs (Cerdo)": { V: 1.36, S: 7.56, D: 6.69, total: 15.61 },
+          "Porkbelly": { V: 1.56, S: 6.00, D: 6.35, total: 13.91 },
+          "Rodilla de Cochino": { V: 1.50, S: 6.80, D: 4.30, total: 12.60 },
+          "Short Ribs": { V: 1.20, S: 4.51, D: 4.63, total: 10.34 },
+          "Prime Ribs": { V: 0, S: 4.815, D: 4.50, total: 9.315 },
+          "Churrasco de Pollo": { V: 2.00, S: 3.00, D: 3.00, total: 8.00 },
+          "Pastrami": { V: 0.86, S: 3.15, D: 2.41, total: 6.42 },
+          "Ribeye": { V: 1.745, S: 3.325, D: 0, total: 5.07 },
+          "Porter T-Bone 961": { V: 0.80, S: 1.95, D: 1.46, total: 4.21 },
+          "Flat-Iron": { V: 0.62, S: 0.21, D: 0.26, total: 1.09 },
+          "Lomito": { V: 0.51, S: 0, D: 0.30, total: 0.81 }
+        }
+      },
+      {
+        id: "FDS 08.11",
+        range: "6-8 Nov",
+        hasDailyBreakdown: true,
+        reportedTotal: 76.841,
+        proteins: {
+          "Brisket (Res)": { V: 2.41, S: 8.331, D: 6.955, total: 17.696 },
+          "Spare Ribs (Cerdo)": { V: 1.49, S: 5.699, D: 4.62, total: 11.809 },
+          "Porkbelly": { V: 2.07, S: 3.38, D: 5.85, total: 11.30 },
+          "Short Ribs": { V: 0.91, S: 4.14, D: 4.07, total: 9.12 },
+          "Ribeye": { V: 0.796, S: 2.95, D: 2.68, total: 6.426 },
+          "Churrasco de Pollo": { V: 0, S: 2.00, D: 4.00, total: 6.00 },
+          "Pastrami": { V: 0.73, S: 1.57, D: 2.28, total: 4.58 },
+          "Prime Ribs": { V: 0, S: 2.21, D: 2.09, total: 4.30 },
+          "Rodilla de Cochino": { V: 0, S: 3.00, D: 0, total: 3.00 },
+          "Lomito": { V: 0, S: 0, D: 1.56, total: 1.56 },
+          "Porter T-Bone 961": { V: 0, S: 0, D: 0.95, total: 0.95 },
+          "Flat-Iron": { V: 0, S: 0, D: 0.10, total: 0.10 }
+        }
+      },
+      {
+        id: "FDS 15.11",
+        range: "13-15 Nov",
+        hasDailyBreakdown: true,
+        reportedTotal: 96.340,
+        proteins: {
+          "Brisket (Res)": { V: 3.35, S: 7.06, D: 12.57, total: 22.98 },
+          "Spare Ribs (Cerdo)": { V: 4.08, S: 4.95, D: 6.99, total: 16.02 },
+          "Porkbelly": { V: 3.30, S: 5.54, D: 6.58, total: 15.42 },
+          "Ribeye": { V: 4.06, S: 1.38, D: 5.09, total: 10.53 },
+          "Short Ribs": { V: 2.06, S: 3.86, D: 2.83, total: 8.75 },
+          "Prime Ribs": { V: 0, S: 4.53, D: 3.13, total: 7.66 },
+          "Pastrami": { V: 0.95, S: 2.46, D: 2.26, total: 5.67 },
+          "Churrasco de Pollo": { V: 2.00, S: 0, D: 2.00, total: 4.00 },
+          "Rodilla de Cochino": { V: 1.20, S: 0, D: 2.80, total: 4.00 },
+          "Porter T-Bone 961": { V: 0, S: 0, D: 0.95, total: 0.95 },
+          "Lomito": { V: 0, S: 0.25, D: 0.11, total: 0.36 }
+        }
+      }
+    ];
+
+    // Datos adicionales de Sides e Insumos
+    const SIDES_DATA = {
+      labels: ["FDS 04.10", "FDS 18.10", "FDS 25.10", "FDS 01.11", "FDS 08.11"],
+      items: [
+        { name: "Papas Fritas (Kg)", category: "SIDES", values: [33.70, 32.35, 25.90, 23.55, 24.50], color: "#F59E0B" },
+        { name: "Ensalada Coleslaw (Kg)", category: "SIDES", values: [18.55, 14.05, 13.35, 11.15, 11.35], color: "#10B981" },
+        { name: "Aros de Cebolla (Kg)", category: "SIDES", values: [17.76, 15.38, 9.95, 9.75, 8.75], color: "#EF4444" },
+        { name: "Smoked Chicken Wings (Kg)", category: "SIDES", values: [10.80, 12.00, 6.00, 8.40, 5.40], color: "#8B5CF6" },
+        { name: "Blue Dressing (L)", category: "DRESSINGS", values: [2.325, 9.175, 11.425, 11.00, 7.20], color: "#3B82F6" },
+        { name: "Cesar Dressing (Kg)", category: "DRESSINGS", values: [0.60, 6.93, 7.755, 7.92, 9.57], color: "#EC4899" }
+      ]
+    };
+
+    // Base de datos histórica de Hamburguesas y Sándwiches (Unidades | 18/10 al 15/11)
+    const INITIAL_BURGERS_DATA = [
+      {
+        name: "961 American Burger",
+        type: "BURGER",
+        fds: {
+          "FDS 18.10": { V: 4, S: 7, D: 11 },
+          "FDS 25.10": { V: 4, S: 7, D: 6 },
+          "FDS 01.11": { V: 0, S: 3, D: 2 },
+          "FDS 08.11": { V: 1, S: 7, D: 6 },
+          "FDS 15.11": { V: 1, S: 1, D: 13 }
+        }
+      },
+      {
+        name: "961 Bacon Jam Burger",
+        type: "BURGER",
+        fds: {
+          "FDS 18.10": { V: 3, S: 6, D: 6 },
+          "FDS 25.10": { V: 1, S: 1, D: 3 },
+          "FDS 01.11": { V: 1, S: 2, D: 2 },
+          "FDS 08.11": { V: 4, S: 7, D: 3 },
+          "FDS 15.11": { V: 0, S: 1, D: 2 }
+        }
+      },
+      {
+        name: "961 Cheese Burger",
+        type: "BURGER",
+        fds: {
+          "FDS 18.10": { V: 3, S: 1, D: 1 },
+          "FDS 25.10": { V: 1, S: 2, D: 3 },
+          "FDS 01.11": { V: 0, S: 3, D: 3 },
+          "FDS 08.11": { V: 2, S: 1, D: 2 },
+          "FDS 15.11": { V: 1, S: 0, D: 2 }
+        }
+      },
+      {
+        name: "961 Crispy Chicken Burger",
+        type: "BURGER",
+        fds: {
+          "FDS 18.10": { V: 0, S: 1, D: 3 },
+          "FDS 25.10": { V: 1, S: 2, D: 2 },
+          "FDS 01.11": { V: 0, S: 2, D: 1 },
+          "FDS 08.11": { V: 0, S: 5, D: 3 },
+          "FDS 15.11": { V: 0, S: 0, D: 8 }
+        }
+      },
+      {
+        name: "961 Pastrami Burger",
+        type: "BURGER",
+        fds: {
+          "FDS 18.10": { V: 3, S: 3, D: 2 },
+          "FDS 25.10": { V: 7, S: 3, D: 4 },
+          "FDS 01.11": { V: 4, S: 2, D: 2 },
+          "FDS 08.11": { V: 0, S: 4, D: 3 },
+          "FDS 15.11": { V: 3, S: 2, D: 5 }
+        }
+      },
+      {
+        name: "961 Brisket Sandwich",
+        type: "SANDWICH",
+        fds: {
+          "FDS 18.10": { V: 1, S: 2, D: 1 },
+          "FDS 25.10": { V: 1, S: 3, D: 2 },
+          "FDS 01.11": { V: 1, S: 2, D: 3 },
+          "FDS 08.11": { V: 2, S: 2, D: 1 },
+          "FDS 15.11": { V: 3, S: 3, D: 5 }
+        }
+      },
+      {
+        name: "961 NY Style Reuben Sandwich",
+        type: "SANDWICH",
+        fds: {
+          "FDS 18.10": { V: 4, S: 1, D: 1 },
+          "FDS 25.10": { V: 0, S: 0, D: 1 },
+          "FDS 01.11": { V: 1, S: 1, D: 0 },
+          "FDS 08.11": { V: 1, S: 0, D: 2 },
+          "FDS 15.11": { V: 2, S: 0, D: 4 }
+        }
+      },
+      {
+        name: "961 Pastrami Sandwich",
+        type: "SANDWICH",
+        fds: {
+          "FDS 18.10": { V: 1, S: 1, D: 2 },
+          "FDS 25.10": { V: 1, S: 0, D: 1 },
+          "FDS 01.11": { V: 0, S: 0, D: 3 },
+          "FDS 08.11": { V: 1, S: 0, D: 0 },
+          "FDS 15.11": { V: 0, S: 0, D: 0 }
+        }
+      },
+      {
+        name: "961 Reuben Pastrami Sandwich",
+        type: "SANDWICH",
+        fds: {
+          "FDS 18.10": { V: 0, S: 4, D: 1 },
+          "FDS 25.10": { V: 2, S: 1, D: 2 },
+          "FDS 01.11": { V: 0, S: 2, D: 2 },
+          "FDS 08.11": { V: 1, S: 0, D: 0 },
+          "FDS 15.11": { V: 1, S: 0, D: 2 }
+        }
+      },
+      {
+        name: "961 Spare Ribs Sandwich",
+        type: "SANDWICH",
+        fds: {
+          "FDS 18.10": { V: 2, S: 1, D: 2 },
+          "FDS 25.10": { V: 2, S: 2, D: 2 },
+          "FDS 01.11": { V: 1, S: 4, D: 3 },
+          "FDS 08.11": { V: 1, S: 0, D: 1 },
+          "FDS 15.11": { V: 0, S: 0, D: 3 }
+        }
+      }
+    ];
+
+    const INITIAL_BURGER_FDS_KEYS = ["FDS 18.10", "FDS 25.10", "FDS 01.11", "FDS 08.11", "FDS 15.11"];
+
+    /**
+     * =========================================================================
+     * 2. ESTADO, NORMALIZADOR ESTRICTO Y CONECTOR ROBUSTO A GOOGLE SHEETS
+     * =========================================================================
+     */
+    const STORAGE_KEY = "961_smokehouse_fds_v4_clean";
+    let fdsDataset = [];
+    let burgersDataset = [];
+    let burgerFdsKeys = [];
+
+    // Registro de diagnóstico en vivo para inspeccionar exactamente qué llega de Google Sheets
+    let lastDiag = {
+      timestamp: "--",
+      proteinas: { ok: false, via: "--", error: null, fdsFound: [], rowsRead: 0, skipped: [], preview: [] },
+      burgers:   { ok: false, via: "--", error: null, fdsFound: [], rowsRead: 0, skipped: [], preview: [] }
+    };
+
+    let state = {
+      activeView: "proteins", // 'proteins' | 'burgers'
+      selectedFDS: "ALL",     // 'ALL' | 'RANGE' | '<FDS id>'
+      rangeStart: "",         // ID del FDS inicial del rango
+      rangeEnd: "",           // ID del FDS final del rango
+      selectedProtein: "ALL",
+      selectedDay: "ALL",
+      dayChartMode: "byCut", // 'byCut' | 'byTotal'
+      sortCol: "total",
+      sortDir: "desc"
+    };
+
+    // Instancias de Chart.js
+    let charts = {
+      history: null,
+      days: null,
+      ranking: null,
+      sides: null,
+      burgersHistory: null,
+      burgersRanking: null
+    };
+
+    function normKey(str) {
+      return String(str || "")
+        .replace(/^\uFEFF/, "")
+        .replace(/^"|"$/g, "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "");
+    }
+
+    // Mapeo flexible hacia los 13 cortes oficiales para eliminar duplicidades
+    const PROTEIN_ALIASES = {
+      "brisket": "Brisket (Res)",
+      "brisketres": "Brisket (Res)",
+      "brisketderes": "Brisket (Res)",
+      "porkbelly": "Porkbelly",
+      "porkbellys": "Porkbelly",
+      "spareribs": "Spare Ribs (Cerdo)",
+      "sparerib": "Spare Ribs (Cerdo)",
+      "spareribscerdo": "Spare Ribs (Cerdo)",
+      "spareribsdecerdo": "Spare Ribs (Cerdo)",
+      "shortribs": "Short Ribs",
+      "shortrib": "Short Ribs",
+      "rodilladecochino": "Rodilla de Cochino",
+      "rodillacochino": "Rodilla de Cochino",
+      "rodilla": "Rodilla de Cochino",
+      "pastrami": "Pastrami",
+      "churrascodepollo": "Churrasco de Pollo",
+      "churrascopollo": "Churrasco de Pollo",
+      "ribeye": "Ribeye",
+      "portertbone961": "Porter T-Bone 961",
+      "portertbone": "Porter T-Bone 961",
+      "tbone961": "Porter T-Bone 961",
+      "tbone": "Porter T-Bone 961",
+      "primeribs": "Prime Ribs",
+      "primerib": "Prime Ribs",
+      "flatiron": "Flat-Iron",
+      "lomito": "Lomito",
+      "costilladecordero": "Costilla de Cordero",
+      "costillasdecordero": "Costilla de Cordero",
+      "cordero": "Costilla de Cordero"
+    };
+
+    // Resuelve cualquier variante hacia los 13 cortes oficiales exactos
+    function resolveOfficialProtein(raw) {
+      const k = normKey(raw);
+      if (!k) return null;
+      if (PROTEIN_ALIASES[k]) return PROTEIN_ALIASES[k];
+      const exact = ALL_PROTEINS.find(p => normKey(p) === k);
+      return exact || null;
+    }
+
+    // Resuelve cualquier variante hacia los 10 productos oficiales de Burgers & Sándwiches
+    function resolveOfficialBurger(raw) {
+      const k = normKey(raw);
+      if (!k) return null;
+      const exact = INITIAL_BURGERS_DATA.find(b => {
+        const bk = normKey(b.name);
+        return bk === k || bk === `961${k}` || `961${bk}` === k;
+      });
+      return exact ? exact.name : null;
+    }
+
+    // Detecta separador CSV automáticamente (coma, punto y coma o tabulador)
+    function detectDelimiter(headerLine) {
+      const line = String(headerLine || "");
+      const semi = (line.match(/;/g) || []).length;
+      const comma = (line.match(/,/g) || []).length;
+      const tab = (line.match(/\t/g) || []).length;
+      if (tab > comma && tab > semi) return "\t";
+      return semi > comma ? ";" : ",";
+    }
+
+    // Divide una línea CSV respetando valores entre comillas
+    function parseCSVLine(line, delimiter = ",") {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === delimiter && !inQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    // Convierte texto numérico de Google Sheets (coma o punto decimal) a número válido
+    function parseSheetNum(val) {
+      if (val === undefined || val === null) return 0;
+      let str = String(val)
+        .replace(/^"|"$/g, "")
+        .replace(/kg|unds|und|l/gi, "")
+        .replace(/\s+/g, "")
+        .trim();
+      if (!str || str === "-" || str === "--") return 0;
+      if (str.includes(",") && str.includes(".")) {
+        if (str.lastIndexOf(",") > str.lastIndexOf(".")) {
+          str = str.replace(/\./g, "").replace(",", ".");
+        } else {
+          str = str.replace(/,/g, "");
+        }
+      } else if (str.includes(",")) {
+        str = str.replace(",", ".");
+      }
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+
+    // Busca automáticamente en qué fila están los encabezados reales (desde matriz 2D de filas)
+    function findHeaderRowAndMapFromRows(rows, mode) {
+      const maxScan = Math.min(rows.length, 10);
+      for (let rowIdx = 0; rowIdx < maxScan; rowIdx++) {
+        const cols = rows[rowIdx] || [];
+        const normH = cols.map(h => normKey(h));
+        const hasDayCols = normH.some(h => h === "v" || h.startsWith("viernes") || h === "vie") ||
+                           normH.some(h => h === "s" || h.startsWith("sabado") || h === "sab") ||
+                           normH.some(h => h === "d" || h.startsWith("domingo") || h === "dom");
+        const hasFdsOrName = normH.some(h => h.includes("fds") || h.includes("semana") || h.includes("proteina") || h.includes("corte") || h.includes("producto"));
+
+        if (hasDayCols && hasFdsOrName) {
+          const fds = normH.findIndex(h => h.includes("fds") || h.includes("semana"));
+          const range = normH.findIndex(h => h.includes("rango") || h.includes("fecha"));
+          const prot = normH.findIndex(h => h.includes("proteina") || h.includes("corte"));
+          const prod = normH.findIndex(h => h.includes("producto") || h.includes("burger") || h.includes("sandwich") || h.includes("nombre"));
+          const tipo = normH.findIndex(h => h.includes("tipo") || h.includes("linea") || h.includes("categoria"));
+          const v = normH.findIndex(h => h === "v" || h.startsWith("viernes") || h === "vie");
+          const s = normH.findIndex(h => h === "s" || h.startsWith("sabado") || h === "sab");
+          const d = normH.findIndex(h => h === "d" || h.startsWith("domingo") || h === "dom");
+          const tot = normH.findIndex(h => h.includes("total"));
+
+          if (mode === "proteins") {
+            return {
+              headerRowIndex: rowIdx,
+              col: {
+                fds: fds >= 0 ? fds : 0,
+                range: range >= 0 ? range : (prot === 1 ? -1 : 1),
+                prot: prot >= 0 ? prot : (range >= 0 ? 2 : 1),
+                v: v >= 0 ? v : 3,
+                s: s >= 0 ? s : 4,
+                d: d >= 0 ? d : 5,
+                tot: tot
+              }
+            };
+          } else {
+            return {
+              headerRowIndex: rowIdx,
+              col: {
+                fds: fds >= 0 ? fds : 0,
+                prod: prod >= 0 ? prod : 1,
+                tipo: tipo >= 0 ? tipo : 2,
+                v: v >= 0 ? v : 3,
+                s: s >= 0 ? s : 4,
+                d: d >= 0 ? d : 5
+              }
+            };
+          }
+        }
+      }
+
+      return mode === "proteins"
+        ? { headerRowIndex: 0, col: { fds: 0, range: 1, prot: 2, v: 3, s: 4, d: 5, tot: -1 } }
+        : { headerRowIndex: 0, col: { fds: 0, prod: 1, tipo: 2, v: 3, s: 4, d: 5 } };
+    }
+
+    function csvTextToRows(csvText) {
+      const lines = csvText.replace(/^\uFEFF/, "").split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) return [];
+      const delim = detectDelimiter(lines[0]);
+      return lines.map(line => parseCSVLine(line, delim));
+    }
+
+    // Extrae el ID real del libro (/spreadsheets/d/{ID}/edit) descartando enlaces publicados /d/e/2PACX
+    function extractSpreadsheetId(url) {
+      const str = String(url || "").trim();
+      if (!str || str.includes("/d/e/2PACX")) return null;
+      const match = str.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]{20,})/);
+      if (match) return match[1];
+      if (/^[a-zA-Z0-9-_]{25,}$/.test(str) && !str.startsWith("2PACX")) return str;
+      return null;
+    }
+
+    function getSavedDirectSheetUrl() {
+      try {
+        return localStorage.getItem(DIRECT_SHEET_STORAGE_KEY) || DEFAULT_DIRECT_SHEET_URL || "";
+      } catch (e) {
+        return DEFAULT_DIRECT_SHEET_URL || "";
+      }
+    }
+
+    function saveDirectSheetUrlAndSync() {
+      const input = document.getElementById("directSheetUrlInput");
+      const raw = (input?.value || "").trim();
+      if (!raw) {
+        try { localStorage.removeItem(DIRECT_SHEET_STORAGE_KEY); } catch (e) {}
+        showToast("Enlace directo borrado; usando respaldo CSV");
+        syncFromGoogleSheets(true);
+        return;
+      }
+      const id = extractSpreadsheetId(raw);
+      if (!id) {
+        showToast("Pega el enlace normal del navegador (/spreadsheets/d/.../edit), NO el enlace 2PACX", "error");
+        return;
+      }
+      try { localStorage.setItem(DIRECT_SHEET_STORAGE_KEY, raw); } catch (e) {}
+      showToast("Enlace directo guardado. Sincronizando sin proxy...");
+      syncFromGoogleSheets(true);
+    }
+
+    // Conector OFICIAL Google Visualization JSONP (<script>): 0% CORS, 0% Proxies, funciona en file://
+    function fetchViaGoogleGvizJSONP(sheetId, gid) {
+      return new Promise((resolve, reject) => {
+        const cbName = `__gvizCb961_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+        const script = document.createElement("script");
+        let finished = false;
+
+        const cleanup = () => {
+          finished = true;
+          clearTimeout(timer);
+          try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+          if (script.parentNode) script.parentNode.removeChild(script);
+        };
+
+        const timer = setTimeout(() => {
+          if (finished) return;
+          cleanup();
+          reject(new Error("Google Directo JSONP: tiempo de espera agotado (verifica que la hoja sea pública: Cualquier persona con el enlace puede ver)"));
+        }, 10000);
+
+        window[cbName] = function(response) {
+          if (finished) return;
+          cleanup();
+          if (!response || response.status === "error" || !response.table) {
+            const detail = response?.errors?.map(e => e.detailed_message || e.message).join("; ") || "Sin acceso a la hoja";
+            reject(new Error(`Google Directo JSONP: ${detail}`));
+            return;
+          }
+
+          const table = response.table;
+          const colLabels = (table.cols || []).map(c => String(c.label || "").trim());
+          const rows = [];
+          if (colLabels.some(l => l.length > 0)) {
+            rows.push(colLabels);
+          }
+
+          (table.rows || []).forEach(r => {
+            const arr = (r.c || []).map(cell => {
+              if (!cell || ((cell.v === null || cell.v === undefined) && (cell.f === null || cell.f === undefined))) return "";
+              if (typeof cell.v === "number") return String(cell.v);
+              return String(cell.f !== undefined && cell.f !== null ? cell.f : (cell.v !== undefined && cell.v !== null ? cell.v : "")).trim();
+            });
+            if (arr.some(v => v !== "")) rows.push(arr);
+          });
+
+          resolve({ rows, via: "Google Oficial Directo (Sin Proxy)" });
+        };
+
+        script.onerror = () => {
+          if (finished) return;
+          cleanup();
+          reject(new Error("Google Directo JSONP: bloqueado o sin permisos públicos (comparte como 'Cualquier persona con el enlace - Lector')"));
+        };
+
+        script.src = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq?gid=${encodeURIComponent(gid)}&headers=1&tqx=out:json;responseHandler:${cbName}&_ts=${Date.now()}`;
+        document.head.appendChild(script);
+      });
+    }
+
+    // Descarga CSV en paralelo (gana la vía más rápida en lugar de esperar timeouts en fila)
+    async function fetchWithTimeout(target, timeoutMs = 11000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(target, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function firstSuccess(promises) {
+      return new Promise((resolve, reject) => {
+        let pending = promises.length;
+        const errors = new Array(pending);
+        if (pending === 0) return reject(new Error("Sin rutas configuradas"));
+        promises.forEach((p, idx) => {
+          Promise.resolve(p).then(resolve, err => {
+            errors[idx] = err?.message || String(err);
+            pending--;
+            if (pending === 0) reject(new Error(errors.join(" | ")));
+          });
+        });
+      });
+    }
+
+    async function fetchSheetCSV(url) {
+      const bustUrl = url + (url.includes("?") ? `&_ts=${Date.now()}` : `?_ts=${Date.now()}`);
+      const attempts = [
+        { label: "Directo CSV", type: "raw", target: bustUrl },
+        { label: "Proxy AllOrigins JSON", type: "allorigins_json", target: `https://api.allorigins.win/get?url=${encodeURIComponent(bustUrl)}` },
+        { label: "Proxy AllOrigins Raw", type: "raw", target: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
+        { label: "Proxy CodeTabs", type: "raw", target: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` },
+        { label: "Proxy CorsLol", type: "raw", target: `https://api.cors.lol/?url=${encodeURIComponent(url)}` }
+      ];
+
+      const tasks = attempts.map(async (item) => {
+        try {
+          const res = await fetchWithTimeout(item.target, 11000);
+          if (!res.ok) throw new Error(`${item.label}: HTTP ${res.status}`);
+
+          let text = "";
+          if (item.type === "allorigins_json") {
+            const payload = await res.json();
+            const googleCode = payload?.status?.http_code;
+            if (googleCode && googleCode >= 400) {
+              throw new Error(`${item.label}: Google Sheets HTTP ${googleCode}`);
+            }
+            text = payload?.contents || "";
+          } else {
+            text = await res.text();
+          }
+
+          if (!text || text.trim().length < 5) throw new Error(`${item.label}: respuesta vacía`);
+          if (/^\s*<!doctype\s+html/i.test(text) || /^\s*<html/i.test(text)) {
+            throw new Error(`${item.label}: devolvió HTML en vez de CSV`);
+          }
+          return { rows: csvTextToRows(text), via: item.label };
+        } catch (err) {
+          const msg = err.name === "AbortError" ? "timeout" : (err.message || "CORS/red");
+          throw new Error(msg.startsWith(item.label) ? msg : `${item.label}: ${msg}`);
+        }
+      });
+
+      return await firstSuccess(tasks);
+    }
+
+    async function fetchTabData(gid, csvFallbackUrl) {
+      const directUrl = getSavedDirectSheetUrl();
+      const sheetId = extractSpreadsheetId(directUrl);
+      if (sheetId) {
+        try {
+          return await fetchViaGoogleGvizJSONP(sheetId, gid);
+        } catch (directErr) {
+          try {
+            return await fetchSheetCSV(csvFallbackUrl);
+          } catch (csvErr) {
+            throw new Error(`${directErr.message} | Respaldo CSV: ${csvErr.message}`);
+          }
+        }
+      }
+      return await fetchSheetCSV(csvFallbackUrl);
+    }
+
+    function setSyncBadge(mode, text) {
+      const el = document.getElementById("liveSyncStatus");
+      if (!el) return;
+      if (mode === "live") {
+        el.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold hover:border-emerald-400 cursor-pointer";
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>${text}</span>`;
+      } else if (mode === "syncing") {
+        el.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-semibold cursor-pointer";
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span><span>${text}</span>`;
+      } else if (mode === "warn") {
+        el.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 font-semibold cursor-pointer";
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>${text}</span>`;
+      } else {
+        el.className = "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-smoke-red/15 border border-smoke-red/30 font-semibold text-smoke-red cursor-pointer";
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-smoke-red"></span><span>${text}</span>`;
+      }
+    }
+
+    // Fusiona los FDS de Google Sheets sobre la base de 11 FDS históricos sin duplicar
+    function mergeProteinsFromRows(rows) {
+      const preview = rows.slice(0, 6).map(r => r.join(","));
+      if (rows.length < 2) {
+        return { rowsRead: 0, fdsAdded: 0, fdsFound: [], skipped: ["La pestaña Proteínas tiene menos de 2 filas"], preview };
+      }
+
+      const { headerRowIndex, col } = findHeaderRowAndMapFromRows(rows, "proteins");
+
+      const sheetFdsMap = {};
+      const skipped = [];
+      let rowsRead = 0;
+      let lastFdsId = "";
+      let lastRange = "";
+
+      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const cols = rows[i];
+        if (!cols || cols.length < 3) continue;
+
+        let fdsId = String(cols[col.fds] || "").replace(/^"|"$/g, "").replace(/\s+/g, " ").trim();
+        let rangeVal = col.range >= 0 ? String(cols[col.range] || "").replace(/^"|"$/g, "").trim() : "";
+        const rawProt = String(cols[col.prot] || "").replace(/^"|"$/g, "").trim();
+
+        if (/^total/i.test(fdsId) || /^total/i.test(rawProt)) continue;
+
+        if (fdsId) lastFdsId = fdsId;
+        else if (lastFdsId && rawProt) fdsId = lastFdsId;
+
+        if (rangeVal) lastRange = rangeVal;
+        else if (lastRange && fdsId === lastFdsId) rangeVal = lastRange;
+
+        const protName = resolveOfficialProtein(rawProt);
+        if (!fdsId || !protName) {
+          if (rawProt && !/^proteina/i.test(rawProt)) {
+            skipped.push(`Fila ${i + 1}: FDS="${fdsId || '(vacío)'}", Proteína="${rawProt}" (no coincide con los 13 cortes)`);
+          }
+          continue;
+        }
+
+        if (!sheetFdsMap[fdsId]) {
+          sheetFdsMap[fdsId] = {
+            id: fdsId,
+            range: rangeVal || "Google Sheets",
+            hasDailyBreakdown: true,
+            reportedTotal: 0,
+            proteins: {}
+          };
+        }
+
+        const V = parseSheetNum(cols[col.v]);
+        const S = parseSheetNum(cols[col.s]);
+        const D = parseSheetNum(cols[col.d]);
+        const colTot = col.tot >= 0 ? parseSheetNum(cols[col.tot]) : 0;
+        const sub = (V + S + D) > 0 ? Number((V + S + D).toFixed(3)) : Number(colTot.toFixed(3));
+        if ((V + S + D) === 0 && colTot > 0) {
+          sheetFdsMap[fdsId].hasDailyBreakdown = false;
+        }
+        rowsRead++;
+
+        if (!sheetFdsMap[fdsId].proteins[protName]) {
+          sheetFdsMap[fdsId].proteins[protName] = { V, S, D, total: sub };
+        } else {
+          const prev = sheetFdsMap[fdsId].proteins[protName];
+          prev.V = Number((prev.V + V).toFixed(3));
+          prev.S = Number((prev.S + S).toFixed(3));
+          prev.D = Number((prev.D + D).toFixed(3));
+          prev.total = Number((prev.total + sub).toFixed(3));
+        }
+      }
+
+      const baseList = getBaseDatasetWithManual();
+      const fdsFound = Object.keys(sheetFdsMap);
+      let fdsAdded = 0;
+
+      Object.values(sheetFdsMap).forEach(entry => {
+        entry.reportedTotal = Number(
+          Object.values(entry.proteins).reduce((acc, p) => acc + (p.total || 0), 0).toFixed(3)
+        );
+        const existingIdx = baseList.findIndex(f => normKey(f.id) === normKey(entry.id));
+        if (existingIdx >= 0) {
+          baseList[existingIdx] = {
+            ...baseList[existingIdx],
+            range: entry.range !== "Google Sheets" ? entry.range : baseList[existingIdx].range,
+            hasDailyBreakdown: entry.hasDailyBreakdown,
+            reportedTotal: entry.reportedTotal,
+            proteins: entry.proteins
+          };
+        } else {
+          baseList.push(entry);
+          fdsAdded++;
+        }
+      });
+
+      fdsDataset = baseList;
+      return { rowsRead, fdsAdded, fdsFound, skipped, preview };
+    }
+
+    function mergeBurgersFromRows(rows) {
+      const preview = rows.slice(0, 6).map(r => r.join(","));
+      if (rows.length < 2) {
+        return { rowsRead: 0, fdsFound: [], skipped: ["La pestaña Burgers tiene menos de 2 filas"], preview };
+      }
+
+      const { headerRowIndex, col } = findHeaderRowAndMapFromRows(rows, "burgers");
+
+      const updatedBurgers = JSON.parse(JSON.stringify(INITIAL_BURGERS_DATA));
+      const keysSet = new Set(INITIAL_BURGER_FDS_KEYS);
+      const fdsFoundSet = new Set();
+      const seenPerProdFds = {};
+      const skipped = [];
+      let rowsRead = 0;
+      let lastFdsId = "";
+
+      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const cols = rows[i];
+        if (!cols || cols.length < 3) continue;
+
+        let fdsId = String(cols[col.fds] || "").replace(/^"|"$/g, "").replace(/\s+/g, " ").trim();
+        const rawProd = String(cols[col.prod] || "").replace(/^"|"$/g, "").trim();
+
+        if (/^total/i.test(fdsId) || /^total/i.test(rawProd)) continue;
+
+        if (fdsId) lastFdsId = fdsId;
+        else if (lastFdsId && rawProd) fdsId = lastFdsId;
+
+        const prodName = resolveOfficialBurger(rawProd);
+        if (!fdsId || !prodName) {
+          if (rawProd && !/^producto/i.test(rawProd)) {
+            skipped.push(`Fila ${i + 1}: FDS="${fdsId || '(vacío)'}", Producto="${rawProd}" (no coincide con los 10 productos)`);
+          }
+          continue;
+        }
+
+        keysSet.add(fdsId);
+        fdsFoundSet.add(fdsId);
+        const target = updatedBurgers.find(item => item.name === prodName);
+        if (!target) continue;
+
+        const V = Math.round(parseSheetNum(cols[col.v]));
+        const S = Math.round(parseSheetNum(cols[col.s]));
+        const D = Math.round(parseSheetNum(cols[col.d]));
+        rowsRead++;
+
+        const compoundKey = `${prodName}__${fdsId}`;
+        if (!seenPerProdFds[compoundKey]) {
+          target.fds[fdsId] = { V, S, D };
+          seenPerProdFds[compoundKey] = true;
+        } else {
+          target.fds[fdsId].V += V;
+          target.fds[fdsId].S += S;
+          target.fds[fdsId].D += D;
+        }
+      }
+
+      burgersDataset = updatedBurgers;
+      burgerFdsKeys = Array.from(keysSet);
+      return { rowsRead, fdsFound: Array.from(fdsFoundSet), skipped, preview };
+    }
+
+    async function syncFromGoogleSheets(manual = false) {
+      const icon = document.querySelector("#btnSyncSheets i");
+      if (icon) icon.classList.add("animate-spin");
+      setSyncBadge("syncing", "Sincronizando Google Sheets...");
+
+      const hora = new Date().toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      lastDiag.timestamp = hora;
+
+      let protOk = false, burgOk = false;
+      let protRes = { rowsRead: 0, fdsAdded: 0, fdsFound: [], skipped: [], preview: [] };
+      let burgRes = { rowsRead: 0, fdsFound: [], skipped: [], preview: [] };
+
+      const [resP, resB] = await Promise.allSettled([
+        fetchTabData(GID_PROTEINAS, SHEETS_CSV_PROTEINAS),
+        fetchTabData(GID_BURGERS, SHEETS_CSV_BURGERS)
+      ]);
+
+      if (resP.status === "fulfilled") {
+        protRes = mergeProteinsFromRows(resP.value.rows);
+        protOk = true;
+        lastDiag.proteinas = { ok: true, via: resP.value.via, error: null, ...protRes };
+      } else {
+        lastDiag.proteinas = { ok: false, via: "--", error: resP.reason?.message || "Error", fdsFound: [], rowsRead: 0, skipped: [], preview: [] };
+      }
+
+      if (resB.status === "fulfilled") {
+        burgRes = mergeBurgersFromRows(resB.value.rows);
+        burgOk = true;
+        lastDiag.burgers = { ok: true, via: resB.value.via, error: null, ...burgRes };
+      } else {
+        lastDiag.burgers = { ok: false, via: "--", error: resB.reason?.message || "Error", fdsFound: [], rowsRead: 0, skipped: [], preview: [] };
+      }
+
+      populateFilterDropdowns();
+      applyFilters();
+      renderDiagModalContent();
+
+      if (protOk && burgOk) {
+        const totalSheetFds = new Set([...protRes.fdsFound, ...burgRes.fdsFound]).size;
+        if (protRes.rowsRead === 0 && burgRes.rowsRead === 0) {
+          setSyncBadge("warn", `Sheets conectado (${hora}) • 0 filas válidas (Ver diagnóstico)`);
+          if (manual) showToast("Conectó al Google Sheet pero leyó 0 filas válidas. Revisa Diagnóstico.", "error");
+        } else {
+          const extraLabel = protRes.fdsAdded > 0 ? ` (+${protRes.fdsAdded} nuevo)` : "";
+          setSyncBadge("live", `Sheets Live (${hora}) • ${fdsDataset.length} FDS${extraLabel} • ${protRes.rowsRead}P / ${burgRes.rowsRead}B`);
+          if (manual) showToast(`Sincronizado: ${fdsDataset.length} FDS activos (${totalSheetFds} en Sheets)`);
+        }
+      } else if (protOk || burgOk) {
+        const okName = protOk ? "Proteínas" : "Burgers";
+        const failName = protOk ? "Burgers" : "Proteínas";
+        setSyncBadge("warn", `${okName} OK • ${failName} falló (${hora}) • Clic para conectar directo`);
+        if (manual) showToast(`${okName} sincronizó, pero ${failName} falló. Usa Conexión Directa.`, "error");
+      } else {
+        setSyncBadge("error", `Proxies caídos • Clic aquí para Conectar Directo sin Proxy`);
+        if (manual) {
+          showToast("Proxies bloqueados en PC local. Pega el enlace normal (/edit) en Conexión Directa.", "error");
+          openDiagModal();
+        }
+      }
+
+      if (icon) icon.classList.remove("animate-spin");
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function renderDiagModalContent() {
+      const input = document.getElementById("directSheetUrlInput");
+      const hint = document.getElementById("directSheetStatusHint");
+      const savedDirect = getSavedDirectSheetUrl();
+      if (input && document.activeElement !== input) {
+        input.value = savedDirect;
+      }
+      if (hint) {
+        const id = extractSpreadsheetId(savedDirect);
+        hint.innerHTML = id
+          ? `<span class="text-emerald-600 dark:text-emerald-400 font-semibold">✓ Modo Directo Activo (ID: ${escapeHtml(id.slice(0, 12))}... • Sin Proxies / Sin CORS)</span>`
+          : `Estado actual: usando enlaces CSV publicados (si falla en PC local por CORS/proxies, pega arriba tu enlace normal <strong>/spreadsheets/d/.../edit</strong>).`;
+      }
+
+      const box = document.getElementById("diagContent");
+      if (!box) return;
+
+      const buildBlock = (title, info, url) => {
+        const statusBadge = info.ok
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-500 font-bold">OK (${escapeHtml(info.via)})</span>`
+          : `<span class="px-2 py-0.5 rounded bg-smoke-red/15 text-smoke-red font-bold">ERROR DE CONEXIÓN</span>`;
+
+        return `
+          <div class="rounded-xl border border-stone-200 dark:border-charcoal-700 p-4 space-y-2 bg-stone-50/70 dark:bg-charcoal-850">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-sm text-stone-900 dark:text-white">${title}</span>
+              <div class="flex items-center gap-2">
+                <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="px-2 py-0.5 rounded bg-ember-500/15 text-ember-500 hover:bg-ember-500/25 font-semibold underline">Probar CSV ↗</a>
+                ${statusBadge}
+              </div>
+            </div>
+            ${info.error ? `<div class="p-2.5 rounded-lg bg-smoke-red/10 text-smoke-red break-words">Detalle: ${escapeHtml(info.error)}</div>` : ""}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <div class="p-2 rounded-lg bg-white dark:bg-charcoal-900 border border-stone-200 dark:border-charcoal-800">
+                <span class="text-stone-400">Filas válidas leídas:</span> <strong class="text-ember-500">${info.rowsRead}</strong>
+              </div>
+              <div class="p-2 rounded-lg bg-white dark:bg-charcoal-900 border border-stone-200 dark:border-charcoal-800">
+                <span class="text-stone-400">FDS detectados en Sheet:</span> <strong class="text-emerald-500">${info.fdsFound.length ? escapeHtml(info.fdsFound.join(", ")) : "Ninguno"}</strong>
+              </div>
+            </div>
+            ${info.skipped.length ? `
+              <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 space-y-1">
+                <div class="font-bold">Filas omitidas (${info.skipped.length}):</div>
+                ${info.skipped.slice(0, 8).map(s => `<div>• ${escapeHtml(s)}</div>`).join("")}
+              </div>
+            ` : ""}
+            ${info.preview.length ? `
+              <div class="space-y-1">
+                <div class="text-stone-400 font-semibold">Primeras filas recibidas:</div>
+                <pre class="p-2.5 rounded-lg bg-charcoal-950 text-stone-200 overflow-x-auto text-[11px] leading-relaxed">${escapeHtml(info.preview.join("\n"))}</pre>
+              </div>
+            ` : ""}
+          </div>
+        `;
+      };
+
+      box.innerHTML = `
+        <div class="flex items-center justify-between text-stone-500 dark:text-stone-400">
+          <span>Último intento: <strong>${escapeHtml(lastDiag.timestamp)}</strong></span>
+          <span>FDS totales en Dashboard: <strong>${fdsDataset.length}</strong></span>
+        </div>
+        ${buildBlock("1. Pestaña Proteínas (gid=0)", lastDiag.proteinas, SHEETS_CSV_PROTEINAS)}
+        ${buildBlock("2. Pestaña Burgers & Sándwiches (gid=2017975002)", lastDiag.burgers, SHEETS_CSV_BURGERS)}
+      `;
+    }
+
+    function openDiagModal() {
+      renderDiagModalContent();
+      const modal = document.getElementById("diagModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeDiagModal() {
+      const modal = document.getElementById("diagModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function copyDiagText() {
+      const text = JSON.stringify({
+        version: "v4.6",
+        directMode: Boolean(extractSpreadsheetId(getSavedDirectSheetUrl())),
+        totalFdsDashboard: fdsDataset.length,
+        fdsIds: fdsDataset.map(f => f.id),
+        burgerFdsKeys,
+        ...lastDiag
+      }, null, 2);
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast("Diagnóstico copiado al portapapeles");
+      } catch (e) {
+        showToast("No se pudo copiar automáticamente", "error");
+      }
+      ta.remove();
+    }
+
+    // Obtener dataset base (11 FDS históricos + reportes creados manualmente desde el modal)
+    function getBaseDatasetWithManual() {
+      const base = JSON.parse(JSON.stringify(INITIAL_FDS_DATA));
+      try {
+        const savedManual = localStorage.getItem(STORAGE_KEY);
+        if (savedManual) {
+          const parsed = JSON.parse(savedManual);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(entry => {
+              const idx = base.findIndex(f => normKey(f.id) === normKey(entry.id));
+              if (idx >= 0) base[idx] = entry;
+              else base.push(entry);
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("No se pudo leer localStorage.", e);
+      }
+      return base;
+    }
+
+    function loadDataset() {
+      fdsDataset = getBaseDatasetWithManual();
+      burgersDataset = JSON.parse(JSON.stringify(INITIAL_BURGERS_DATA));
+      burgerFdsKeys = [...INITIAL_BURGER_FDS_KEYS];
+    }
+
+    function saveManualEntryToStorage(newEntry) {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        const list = Array.isArray(saved) ? saved : [];
+        const idx = list.findIndex(f => normKey(f.id) === normKey(newEntry.id));
+        if (idx >= 0) list[idx] = newEntry;
+        else list.push(newEntry);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn("Error guardando en localStorage", e);
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 3. UTILIDADES Y HELPERS DE CÁLCULO
+     * =========================================================================
+     */
+    function fmtKg(num, decimals = 2) {
+      return Number(num || 0).toLocaleString("es-VE", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      const colors = type === "error"
+        ? "bg-smoke-red text-white border-red-400"
+        : "bg-charcoal-900 dark:bg-charcoal-800 text-white border-ember-500";
+      
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold transform transition-all duration-300 translate-y-2 opacity-0 ${colors}`;
+      toast.innerHTML = `
+        <span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-white' : 'bg-ember-400'}"></span>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      });
+      setTimeout(() => {
+        toast.classList.add("translate-y-2", "opacity-0");
+        setTimeout(() => toast.remove(), 300);
+      }, 3600);
+    }
+
+    // Devuelve exactamente las 13 proteínas oficiales sin duplicidades
+    function getAllUniqueProteins() {
+      return [...ALL_PROTEINS];
+    }
+
+    // Mapeo de número de mes a etiqueta corta para accesos rápidos de rango
+    const MONTH_NAMES_ES = {
+      "01": "Ene", "02": "Feb", "03": "Mar", "04": "Abr",
+      "05": "May", "06": "Jun", "07": "Jul", "08": "Ago",
+      "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dic"
+    };
+
+    // Extrae el número de mes ("09", "10", "11", etc.) desde el código FDS (ej. "FDS 04.10")
+    function getMonthFromFdsId(fdsId) {
+      const match = String(fdsId || "").match(/(\d{1,2})\.(\d{1,2})/);
+      if (!match) return null;
+      return match[2].padStart(2, "0");
+    }
+
+    // Devuelve la lista exacta de FDS activos según filtro individual o rango Desde-Hasta
+    function getFilteredFdsList() {
+      if (!fdsDataset.length) return [];
+
+      if (state.selectedFDS === "RANGE" && state.rangeStart && state.rangeEnd) {
+        const idxA = fdsDataset.findIndex(f => f.id === state.rangeStart);
+        const idxB = fdsDataset.findIndex(f => f.id === state.rangeEnd);
+        if (idxA >= 0 && idxB >= 0) {
+          const from = Math.min(idxA, idxB);
+          const to = Math.max(idxA, idxB);
+          return fdsDataset.slice(from, to + 1);
+        }
+      }
+
+      if (state.selectedFDS !== "ALL" && state.selectedFDS !== "RANGE") {
+        return fdsDataset.filter(f => f.id === state.selectedFDS);
+      }
+
+      return fdsDataset;
+    }
+
+    // Devuelve una etiqueta limpia del período seleccionado para encabezados y exportación CSV
+    function getSelectedPeriodLabel(forFilename = false) {
+      if (state.selectedFDS === "RANGE" && state.rangeStart && state.rangeEnd) {
+        return forFilename
+          ? `${state.rangeStart}_a_${state.rangeEnd}`.replace(/\s+/g, "_")
+          : `${state.rangeStart} → ${state.rangeEnd}`;
+      }
+      return forFilename ? state.selectedFDS.replace(/\s+/g, "_") : state.selectedFDS;
+    }
+
+    /**
+     * =========================================================================
+     * 4. MOTOR DE FILTRADO Y CÁLCULO DE MÉTRICAS
+     * =========================================================================
+     */
+    function renderQuickRangeButtons() {
+      const container = document.getElementById("quickRangeButtons");
+      if (!container || !fdsDataset.length) return;
+
+      const firstId = fdsDataset[0].id;
+      const lastId = fdsDataset[fdsDataset.length - 1].id;
+      const isAllActive = state.selectedFDS === "ALL";
+
+      // Detectar meses disponibles dinámicamente a partir de los FDS cargados
+      const monthsOrder = [];
+      const monthRanges = {};
+      fdsDataset.forEach(fds => {
+        const m = getMonthFromFdsId(fds.id);
+        if (!m) return;
+        if (!monthRanges[m]) {
+          monthsOrder.push(m);
+          monthRanges[m] = { first: fds.id, last: fds.id };
+        } else {
+          monthRanges[m].last = fds.id;
+        }
+      });
+
+      const last4Start = fdsDataset[Math.max(0, fdsDataset.length - 4)].id;
+      const isLast4Active =
+        (state.selectedFDS === "RANGE" && state.rangeStart === last4Start && state.rangeEnd === lastId) ||
+        (fdsDataset.length <= 4 && isAllActive);
+
+      const activeBtnCls = "px-2.5 py-1 rounded-lg text-[11px] font-bold bg-ember-500 text-white shadow-sm transition";
+      const idleBtnCls = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-charcoal-700 hover:border-ember-500 hover:text-ember-500 transition";
+
+      let html = `
+        <button type="button" onclick="applyQuickRange('ALL')" class="${isAllActive ? activeBtnCls : idleBtnCls}">
+          Todos (${fdsDataset.length})
+        </button>
+        <button type="button" onclick="applyQuickRange('LAST4')" class="${isLast4Active && !isAllActive ? activeBtnCls : idleBtnCls}">
+          Últimos 4 FDS
+        </button>
+      `;
+
+      monthsOrder.forEach(m => {
+        const mr = monthRanges[m];
+        const isMonthActive =
+          (state.selectedFDS === "RANGE" && state.rangeStart === mr.first && state.rangeEnd === mr.last) ||
+          (mr.first === mr.last && state.selectedFDS === mr.first);
+        const label = MONTH_NAMES_ES[m] || `Mes ${m}`;
+        html += `
+          <button type="button" onclick="applyQuickRange('MONTH', '${m}')" class="${isMonthActive ? activeBtnCls : idleBtnCls}">
+            ${label}
+          </button>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function populateFilterDropdowns() {
+      const fdsSelect = document.getElementById("filterFDS");
+      const currentFds = state.selectedFDS;
+
+      // Incluir todos los FDS de Proteínas + cualquier FDS nuevo que solo exista en Burgers
+      const allFdsEntries = fdsDataset.map(fds => ({
+        id: fds.id,
+        label: fds.range ? `${fds.id} (${fds.range})` : fds.id
+      }));
+      burgerFdsKeys.forEach(bk => {
+        if (!allFdsEntries.some(e => normKey(e.id) === normKey(bk))) {
+          allFdsEntries.push({ id: bk, label: `${bk} (Solo Burgers)` });
+        }
+      });
+
+      fdsSelect.innerHTML = `<option value="ALL">Todos los FDS (${allFdsEntries.length})</option>`;
+      if (currentFds === "RANGE" && state.rangeStart && state.rangeEnd) {
+        const rangeOpt = document.createElement("option");
+        rangeOpt.value = "RANGE";
+        rangeOpt.textContent = `Rango: ${state.rangeStart} → ${state.rangeEnd}`;
+        fdsSelect.appendChild(rangeOpt);
+      }
+      allFdsEntries.forEach(entry => {
+        const opt = document.createElement("option");
+        opt.value = entry.id;
+        opt.textContent = entry.label;
+        fdsSelect.appendChild(opt);
+      });
+
+      if (currentFds === "RANGE" && state.rangeStart && state.rangeEnd) {
+        fdsSelect.value = "RANGE";
+      } else {
+        fdsSelect.value = allFdsEntries.some(e => e.id === currentFds) ? currentFds : "ALL";
+        state.selectedFDS = fdsSelect.value;
+      }
+
+      // Poblar selectores de Rango de Fechas (Desde / Hasta)
+      const startSelect = document.getElementById("filterRangeStart");
+      const endSelect = document.getElementById("filterRangeEnd");
+      if (startSelect && endSelect && fdsDataset.length > 0) {
+        const optionsHtml = fdsDataset.map(fds => {
+          const label = fds.range ? `${fds.id} (${fds.range})` : fds.id;
+          return `<option value="${fds.id}">${label}</option>`;
+        }).join("");
+        startSelect.innerHTML = optionsHtml;
+        endSelect.innerHTML = optionsHtml;
+
+        const firstId = fdsDataset[0].id;
+        const lastId = fdsDataset[fdsDataset.length - 1].id;
+
+        if (state.selectedFDS === "RANGE" &&
+            fdsDataset.some(f => f.id === state.rangeStart) &&
+            fdsDataset.some(f => f.id === state.rangeEnd)) {
+          startSelect.value = state.rangeStart;
+          endSelect.value = state.rangeEnd;
+        } else if (state.selectedFDS !== "ALL" && fdsDataset.some(f => f.id === state.selectedFDS)) {
+          startSelect.value = state.selectedFDS;
+          endSelect.value = state.selectedFDS;
+        } else {
+          startSelect.value = firstId;
+          endSelect.value = lastId;
+        }
+      }
+
+      const protSelect = document.getElementById("filterProtein");
+      const currentProt = state.selectedProtein;
+      const prots = getAllUniqueProteins();
+      protSelect.innerHTML = `<option value="ALL">Todas las Proteínas (${prots.length})</option>`;
+      prots.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p;
+        opt.textContent = p;
+        protSelect.appendChild(opt);
+      });
+      protSelect.value = prots.includes(currentProt) ? currentProt : "ALL";
+      state.selectedProtein = protSelect.value;
+
+      renderQuickRangeButtons();
+    }
+
+    // Manejador cuando el usuario cambia el selector individual de Fin de Semana
+    function onSingleFdsChange() {
+      const val = document.getElementById("filterFDS").value;
+      state.selectedFDS = val;
+      if (val === "ALL") {
+        state.rangeStart = "";
+        state.rangeEnd = "";
+      } else if (val !== "RANGE") {
+        state.rangeStart = val;
+        state.rangeEnd = val;
+      }
+      populateFilterDropdowns();
+      applyFilters();
+    }
+
+    // Manejador cuando el usuario escoge un rango en "Desde" o "Hasta"
+    function onRangeChange(edge) {
+      const startSel = document.getElementById("filterRangeStart");
+      const endSel = document.getElementById("filterRangeEnd");
+      if (!startSel || !endSel || !fdsDataset.length) return;
+
+      let startIdx = fdsDataset.findIndex(f => f.id === startSel.value);
+      let endIdx = fdsDataset.findIndex(f => f.id === endSel.value);
+      if (startIdx < 0) startIdx = 0;
+      if (endIdx < 0) endIdx = fdsDataset.length - 1;
+
+      // Garantizar orden cronológico válido (Desde <= Hasta)
+      if (startIdx > endIdx) {
+        if (edge === "start") {
+          endIdx = startIdx;
+          endSel.value = fdsDataset[endIdx].id;
+        } else {
+          startIdx = endIdx;
+          startSel.value = fdsDataset[startIdx].id;
+        }
+      }
+
+      if (startIdx === 0 && endIdx === fdsDataset.length - 1) {
+        state.selectedFDS = "ALL";
+        state.rangeStart = "";
+        state.rangeEnd = "";
+      } else if (startIdx === endIdx) {
+        state.selectedFDS = fdsDataset[startIdx].id;
+        state.rangeStart = fdsDataset[startIdx].id;
+        state.rangeEnd = fdsDataset[endIdx].id;
+      } else {
+        state.selectedFDS = "RANGE";
+        state.rangeStart = fdsDataset[startIdx].id;
+        state.rangeEnd = fdsDataset[endIdx].id;
+      }
+
+      populateFilterDropdowns();
+      applyFilters();
+    }
+
+    // Accesos rápidos de período (Todos, Últimos 4 FDS o por Mes)
+    function applyQuickRange(mode, value) {
+      if (!fdsDataset.length) return;
+
+      if (mode === "ALL") {
+        state.selectedFDS = "ALL";
+        state.rangeStart = "";
+        state.rangeEnd = "";
+      } else if (mode === "LAST4") {
+        const startIdx = Math.max(0, fdsDataset.length - 4);
+        const endIdx = fdsDataset.length - 1;
+        if (startIdx === 0) {
+          state.selectedFDS = "ALL";
+          state.rangeStart = "";
+          state.rangeEnd = "";
+        } else {
+          state.selectedFDS = "RANGE";
+          state.rangeStart = fdsDataset[startIdx].id;
+          state.rangeEnd = fdsDataset[endIdx].id;
+        }
+      } else if (mode === "MONTH") {
+        const matching = fdsDataset.filter(f => getMonthFromFdsId(f.id) === value);
+        if (matching.length === 1) {
+          state.selectedFDS = matching[0].id;
+          state.rangeStart = matching[0].id;
+          state.rangeEnd = matching[0].id;
+        } else if (matching.length > 1) {
+          state.selectedFDS = "RANGE";
+          state.rangeStart = matching[0].id;
+          state.rangeEnd = matching[matching.length - 1].id;
+        }
+      }
+
+      populateFilterDropdowns();
+      applyFilters();
+    }
+
+    function switchMainView(view) {
+      state.activeView = view;
+      const isProteins = view === "proteins";
+
+      document.getElementById("proteinsViewSection").classList.toggle("hidden", !isProteins);
+      document.getElementById("burgersViewSection").classList.toggle("hidden", isProteins);
+
+      const tabProteins = document.getElementById("viewTabProteins");
+      const tabBurgers = document.getElementById("viewTabBurgers");
+
+      if (isProteins) {
+        tabProteins.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide bg-gradient-to-r from-ember-500 to-smoke-red text-white shadow-sm transition";
+        tabBurgers.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white transition";
+        applyFilters();
+      } else {
+        tabBurgers.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide bg-gradient-to-r from-ember-500 to-smoke-red text-white shadow-sm transition";
+        tabProteins.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white transition";
+        renderBurgersDashboard();
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function applyFilters() {
+      const fdsVal = document.getElementById("filterFDS").value;
+      if (fdsVal !== "RANGE") {
+        state.selectedFDS = fdsVal;
+      }
+      state.selectedProtein = document.getElementById("filterProtein").value;
+
+      if (state.activeView === "burgers") {
+        renderBurgersDashboard();
+      } else {
+        updateContextBanner();
+        updateKPIs();
+        renderHistoryChart();
+        renderDaysChart();
+        renderRankingChart();
+        renderTable();
+      }
+    }
+
+    function toggleProteinFromTable(proteinName) {
+      const protSelect = document.getElementById("filterProtein");
+      protSelect.value = state.selectedProtein === proteinName ? "ALL" : proteinName;
+      applyFilters();
+    }
+
+    function resetFilters() {
+      state.selectedFDS = "ALL";
+      state.rangeStart = "";
+      state.rangeEnd = "";
+      state.selectedProtein = "ALL";
+      document.getElementById("tableSearch").value = "";
+      populateFilterDropdowns();
+      setDayFilter("ALL");
+    }
+
+    function updateContextBanner() {
+      const filteredList = getFilteredFdsList();
+      let fdsText = `${fdsDataset.length} Fines de Semana`;
+      if (state.selectedFDS === "RANGE" && state.rangeStart && state.rangeEnd) {
+        fdsText = `Rango ${state.rangeStart} → ${state.rangeEnd} (${filteredList.length} FDS)`;
+      } else if (state.selectedFDS !== "ALL") {
+        const match = fdsDataset.find(f => f.id === state.selectedFDS);
+        fdsText = match?.range ? `${state.selectedFDS} (${match.range})` : state.selectedFDS;
+      }
+
+      const protText = state.selectedProtein === "ALL" ? "Todas las proteínas (13)" : state.selectedProtein;
+      const dayText = state.selectedDay === "ALL" ? "Días completos (Vie-Dom)" : `Día: ${state.selectedDay}`;
+      
+      document.getElementById("contextText").innerHTML =
+        `Mostrando acumulado de <strong>${fdsText}</strong> • <strong>${protText}</strong> • ${dayText}`;
+
+      const hasNoDaily = filteredList.some(f => !f.hasDailyBreakdown);
+      const noteBadge = document.getElementById("noteBadge");
+      if (noteBadge) noteBadge.classList.toggle("hidden", !hasNoDaily);
+      
+      const hasFilter = state.selectedFDS !== "ALL" || state.selectedProtein !== "ALL" || state.selectedDay !== "ALL";
+      document.getElementById("btnClearFilters").classList.toggle("hidden", !hasFilter);
+    }
+
+    function updateKPIs() {
+      let totalKg = 0;
+      let cutTotals = {};
+      let dayTotals = { V: 0, S: 0, D: 0 };
+      let fdsCount = 0;
+
+      const targetFdsList = getFilteredFdsList();
+
+      targetFdsList.forEach(fds => {
+        fdsCount++;
+        Object.entries(fds.proteins).forEach(([protName, pObj]) => {
+          if (state.selectedProtein === "ALL" || state.selectedProtein === protName) {
+            const v = state.selectedDay === "ALL" || state.selectedDay === "V" ? (pObj.V || 0) : 0;
+            const s = state.selectedDay === "ALL" || state.selectedDay === "S" ? (pObj.S || 0) : 0;
+            const d = state.selectedDay === "ALL" || state.selectedDay === "D" ? (pObj.D || 0) : 0;
+            const sub = (state.selectedDay === "ALL" && !fds.hasDailyBreakdown) ? (pObj.total || 0) : (v + s + d);
+
+            totalKg += sub;
+            cutTotals[protName] = (cutTotals[protName] || 0) + sub;
+            dayTotals.V += v;
+            dayTotals.S += s;
+            dayTotals.D += d;
+          }
+        });
+      });
+
+      // KPI 1: Volumen Total
+      document.getElementById("kpiTotalKg").textContent = fmtKg(totalKg, 2);
+      const avgPerFds = fdsCount > 0 ? totalKg / fdsCount : 0;
+      document.getElementById("kpiTotalSublabel").textContent = fdsCount > 1 ? `Promedio por FDS (${fdsCount} FDS)` : "Volumen en FDS seleccionado";
+      document.getElementById("kpiTotalBadge").textContent = `${fmtKg(avgPerFds, 1)} Kg/FDS`;
+
+      // KPI 2: Corte Líder
+      const sortedCuts = Object.entries(cutTotals).sort((a, b) => b[1] - a[1]);
+      const topCut = sortedCuts[0] || ["--", 0];
+      const topShare = totalKg > 0 ? ((topCut[1] / totalKg) * 100).toFixed(1) : "0.0";
+      document.getElementById("kpiTopCutName").textContent = topCut[0];
+      document.getElementById("kpiTopCutKg").textContent = `${fmtKg(topCut[1], 2)} Kg`;
+      document.getElementById("kpiTopCutShare").textContent = `${topShare}% del mix`;
+
+      // KPI 3: Mejor Día
+      const dayArr = [
+        { name: "Viernes", val: dayTotals.V },
+        { name: "Sábado", val: dayTotals.S },
+        { name: "Domingo", val: dayTotals.D }
+      ].sort((a, b) => b.val - a.val);
+      const bestDay = dayArr[0];
+      const daysTotalSum = dayTotals.V + dayTotals.S + dayTotals.D;
+      const bestDayShare = daysTotalSum > 0 ? ((bestDay.val / daysTotalSum) * 100).toFixed(1) : "0.0";
+      document.getElementById("kpiBestDayName").textContent = bestDay.name;
+      document.getElementById("kpiBestDayKg").textContent = `${fmtKg(bestDay.val, 2)} Kg`;
+      document.getElementById("kpiBestDayShare").textContent = `${bestDayShare}% peso semanal`;
+
+      // KPI 4: Despacho Promedio Diario
+      const activeDaysCount = state.selectedDay === "ALL" ? (fdsCount * 3) : fdsCount;
+      const dailyAvg = activeDaysCount > 0 ? totalKg / activeDaysCount : 0;
+      document.getElementById("kpiDailyAvg").textContent = fmtKg(dailyAvg, 2);
+      document.getElementById("kpiDailyDaysCount").textContent = `Base: ${activeDaysCount} días operativos`;
+
+      // FDS Récord (dentro del rango o período activo)
+      let maxFdsName = "--";
+      let maxFdsKg = 0;
+      targetFdsList.forEach(fds => {
+        let sumF = 0;
+        Object.entries(fds.proteins).forEach(([pName, pObj]) => {
+          if (state.selectedProtein === "ALL" || state.selectedProtein === pName) {
+            sumF += pObj.total || 0;
+          }
+        });
+        if (sumF > maxFdsKg) {
+          maxFdsKg = sumF;
+          maxFdsName = fds.id;
+        }
+      });
+      document.getElementById("kpiPeakFds").textContent = `Récord: ${maxFdsName} (${fmtKg(maxFdsKg, 0)} Kg)`;
+    }
+
+    /**
+     * =========================================================================
+     * 5. CONFIGURACIÓN DE GRÁFICOS (CHART.JS)
+     * =========================================================================
+     */
+    function getChartColors() {
+      const isDark = document.documentElement.classList.contains("dark");
+      return {
+        text: isDark ? "#A8A29E" : "#78716C",
+        textStrong: isDark ? "#F5F5F4" : "#1C1917",
+        grid: isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)",
+        cardBg: isDark ? "#18181C" : "#FFFFFF"
+      };
+    }
+
+    function renderHistoryChart() {
+      const colors = getChartColors();
+      // Si hay un rango personalizado activo, enfoca el gráfico y la línea promedio en ese rango
+      const sourceList = state.selectedFDS === "RANGE" ? getFilteredFdsList() : fdsDataset;
+      const labels = sourceList.map(f => f.id);
+      const dataKg = sourceList.map(f => {
+        let sum = 0;
+        Object.entries(f.proteins).forEach(([pName, pObj]) => {
+          if (state.selectedProtein === "ALL" || state.selectedProtein === pName) {
+            const v = state.selectedDay === "ALL" || state.selectedDay === "V" ? (pObj.V || 0) : 0;
+            const s = state.selectedDay === "ALL" || state.selectedDay === "S" ? (pObj.S || 0) : 0;
+            const d = state.selectedDay === "ALL" || state.selectedDay === "D" ? (pObj.D || 0) : 0;
+            sum += (state.selectedDay === "ALL" && !f.hasDailyBreakdown) ? (pObj.total || 0) : (v + s + d);
+          }
+        });
+        return sum;
+      });
+
+      const avgVal = dataKg.reduce((a, b) => a + b, 0) / (dataKg.length || 1);
+      const avgLine = dataKg.map(() => avgVal);
+
+      const ctx = document.getElementById("chartHistory").getContext("2d");
+      if (charts.history) charts.history.destroy();
+
+      charts.history = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              type: "bar",
+              label: "Volumen FDS (Kg)",
+              data: dataKg,
+              backgroundColor: labels.map(id => id === state.selectedFDS ? "#D97706" : "rgba(217, 119, 6, 0.8)"),
+              borderRadius: 6,
+              barThickness: 22
+            },
+            {
+              type: "line",
+              label: "Promedio FDS",
+              data: avgLine,
+              borderColor: "#991B1B",
+              borderWidth: 2,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#18181C",
+              titleFont: { size: 12, weight: "bold" },
+              bodyFont: { size: 11 },
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: ${fmtKg(ctx.parsed.y, 2)} Kg`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: colors.text, font: { size: 11, weight: "600" } } },
+            y: { beginAtZero: true, grid: { color: colors.grid }, ticks: { color: colors.text } }
+          },
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const idx = elements[0].index;
+              const fdsId = labels[idx];
+              if (fdsId === state.selectedFDS) {
+                state.selectedFDS = "ALL";
+                state.rangeStart = "";
+                state.rangeEnd = "";
+              } else {
+                state.selectedFDS = fdsId;
+                state.rangeStart = fdsId;
+                state.rangeEnd = fdsId;
+              }
+              populateFilterDropdowns();
+              applyFilters();
+            }
+          }
+        }
+      });
+    }
+
+    function setDayChartMode(mode) {
+      state.dayChartMode = mode;
+      document.getElementById("btnDayModeCut").className = mode === 'byCut' ? "px-2 py-1 rounded-md font-semibold bg-ember-500 text-white" : "px-2 py-1 rounded-md font-medium text-stone-600 dark:text-stone-300";
+      document.getElementById("btnDayModeTotal").className = mode === 'byTotal' ? "px-2 py-1 rounded-md font-semibold bg-ember-500 text-white" : "px-2 py-1 rounded-md font-medium text-stone-600 dark:text-stone-300";
+      renderDaysChart();
+    }
+
+    function renderDaysChart() {
+      const colors = getChartColors();
+      const ctx = document.getElementById("chartDays").getContext("2d");
+      if (charts.days) charts.days.destroy();
+      const targetFdsList = getFilteredFdsList();
+
+      if (state.dayChartMode === "byTotal") {
+        let vSum = 0, sSum = 0, dSum = 0;
+        targetFdsList.forEach(f => {
+          if (f.hasDailyBreakdown) {
+            Object.entries(f.proteins).forEach(([pName, pObj]) => {
+              if (state.selectedProtein === "ALL" || state.selectedProtein === pName) {
+                vSum += pObj.V || 0;
+                sSum += pObj.S || 0;
+                dSum += pObj.D || 0;
+              }
+            });
+          }
+        });
+
+        document.getElementById("chartDaysSubtitle").textContent = "Volumen total acumulado en Viernes, Sábado y Domingo";
+        charts.days = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: ["Viernes", "Sábado", "Domingo"],
+            datasets: [{
+              data: [vSum, sSum, dSum],
+              backgroundColor: ["#FBBF24", "#D97706", "#DC2626"],
+              borderWidth: 0,
+              hoverOffset: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { color: colors.textStrong, font: { weight: "600" } } },
+              tooltip: {
+                backgroundColor: "#18181C",
+                callbacks: {
+                  label: (c) => ` ${c.label}: ${fmtKg(c.parsed, 2)} Kg (${((c.parsed / (vSum + sSum + dSum || 1)) * 100).toFixed(1)}%)`
+                }
+              }
+            },
+            cutout: "65%"
+          }
+        });
+      } else {
+        let cutTotals = {};
+        targetFdsList.forEach(f => {
+          if (f.hasDailyBreakdown) {
+            Object.entries(f.proteins).forEach(([pName, pObj]) => {
+              if (state.selectedProtein === "ALL" || state.selectedProtein === pName) {
+                if (!cutTotals[pName]) cutTotals[pName] = { V: 0, S: 0, D: 0, total: 0 };
+                cutTotals[pName].V += pObj.V || 0;
+                cutTotals[pName].S += pObj.S || 0;
+                cutTotals[pName].D += pObj.D || 0;
+                cutTotals[pName].total += pObj.total || 0;
+              }
+            });
+          }
+        });
+
+        const topCuts = Object.entries(cutTotals).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
+        document.getElementById("chartDaysSubtitle").textContent = "Desglose por día para los Top 5 cortes operativos";
+
+        charts.days = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: topCuts.map(i => i[0]),
+            datasets: [
+              { label: "Viernes", data: topCuts.map(i => i[1].V), backgroundColor: "#FBBF24", borderRadius: 4 },
+              { label: "Sábado", data: topCuts.map(i => i[1].S), backgroundColor: "#D97706", borderRadius: 4 },
+              { label: "Domingo", data: topCuts.map(i => i[1].D), backgroundColor: "#DC2626", borderRadius: 4 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "top", labels: { color: colors.text, boxWidth: 12, font: { size: 11, weight: "600" } } },
+              tooltip: { backgroundColor: "#18181C" }
+            },
+            scales: {
+              x: { stacked: true, grid: { display: false }, ticks: { color: colors.textStrong, font: { size: 10, weight: "600" } } },
+              y: { stacked: true, beginAtZero: true, grid: { color: colors.grid }, ticks: { color: colors.text } }
+            }
+          }
+        });
+      }
+    }
+
+    function renderRankingChart() {
+      const colors = getChartColors();
+      let cutTotals = {};
+      const targetFdsList = getFilteredFdsList();
+
+      targetFdsList.forEach(fds => {
+        Object.entries(fds.proteins).forEach(([pName, pObj]) => {
+          if (state.selectedProtein === "ALL" || state.selectedProtein === pName) {
+            const v = state.selectedDay === "ALL" || state.selectedDay === "V" ? (pObj.V || 0) : 0;
+            const s = state.selectedDay === "ALL" || state.selectedDay === "S" ? (pObj.S || 0) : 0;
+            const d = state.selectedDay === "ALL" || state.selectedDay === "D" ? (pObj.D || 0) : 0;
+            const sub = (state.selectedDay === "ALL" && !fds.hasDailyBreakdown) ? (pObj.total || 0) : (v + s + d);
+            cutTotals[pName] = (cutTotals[pName] || 0) + sub;
+          }
+        });
+      });
+
+      const sorted = Object.entries(cutTotals).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const totalSum = Object.values(cutTotals).reduce((a, b) => a + b, 0);
+
+      const ctx = document.getElementById("chartRanking").getContext("2d");
+      if (charts.ranking) charts.ranking.destroy();
+
+      charts.ranking = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: sorted.map(i => i[0]),
+          datasets: [{
+            label: "Kilogramos",
+            data: sorted.map(i => i[1]),
+            backgroundColor: ["#D97706", "#B45309", "#991B1B", "#F59E0B", "#B45309", "#78716C", "#57534E", "#292524"],
+            borderRadius: 5,
+            barThickness: 18
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#18181C",
+              callbacks: {
+                label: (c) => ` ${fmtKg(c.parsed.x, 2)} Kg (${totalSum > 0 ? ((c.parsed.x / totalSum) * 100).toFixed(1) : 0}%)`
+              }
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: colors.grid }, ticks: { color: colors.text } },
+            y: { grid: { display: false }, ticks: { color: colors.textStrong, font: { size: 11, weight: "600" } } }
+          },
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const idx = elements[0].index;
+              const protName = sorted[idx][0];
+              toggleProteinFromTable(protName);
+            }
+          }
+        }
+      });
+    }
+
+    function renderSidesChart() {
+      const colors = getChartColors();
+      const catFilter = document.getElementById("sidesCategoryFilter").value;
+      const filteredItems = SIDES_DATA.items.filter(i => catFilter === "ALL" || i.category === catFilter);
+
+      const ctx = document.getElementById("chartSides").getContext("2d");
+      if (charts.sides) charts.sides.destroy();
+
+      charts.sides = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: SIDES_DATA.labels,
+          datasets: filteredItems.map(item => ({
+            label: item.name,
+            data: item.values,
+            backgroundColor: item.color,
+            borderRadius: 4
+          }))
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { color: colors.text, boxWidth: 10, font: { size: 10, weight: "600" } } },
+            tooltip: { backgroundColor: "#18181C" }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: colors.textStrong, font: { weight: "600" } } },
+            y: { beginAtZero: true, grid: { color: colors.grid }, ticks: { color: colors.text } }
+          }
+        }
+      });
+    }
+
+    /**
+     * =========================================================================
+     * 6. TABLA DETALLADA DE PROTEÍNAS
+     * =========================================================================
+     */
+    function getTableRowsData() {
+      let cutMap = {};
+      const targetFdsList = getFilteredFdsList();
+
+      let prevFdsObj = null;
+      let currFdsObj = null;
+      if (targetFdsList.length > 0) {
+        currFdsObj = targetFdsList[targetFdsList.length - 1];
+        const idxInAll = fdsDataset.findIndex(f => f.id === currFdsObj.id);
+        prevFdsObj = idxInAll > 0 ? fdsDataset[idxInAll - 1] : null;
+      }
+
+      targetFdsList.forEach(fds => {
+        Object.entries(fds.proteins).forEach(([pName, pObj]) => {
+          if (!cutMap[pName]) cutMap[pName] = { V: 0, S: 0, D: 0, total: 0 };
+          cutMap[pName].V += pObj.V || 0;
+          cutMap[pName].S += pObj.S || 0;
+          cutMap[pName].D += pObj.D || 0;
+          cutMap[pName].total += pObj.total || 0;
+        });
+      });
+
+      const grandTotal = Object.values(cutMap).reduce((acc, obj) => acc + (state.selectedDay === "ALL" ? obj.total : (obj[state.selectedDay] || 0)), 0);
+      const searchTerm = document.getElementById("tableSearch").value.toLowerCase();
+
+      let rows = Object.entries(cutMap).map(([name, obj]) => {
+        const V = obj.V;
+        const S = obj.S;
+        const D = obj.D;
+        const total = state.selectedDay === "ALL" ? obj.total : (obj[state.selectedDay] || 0);
+        const share = grandTotal > 0 ? (total / grandTotal) * 100 : 0;
+
+        let variation = null;
+        if (currFdsObj && prevFdsObj) {
+          const currVal = currFdsObj.proteins[name]?.total || 0;
+          const prevVal = prevFdsObj.proteins[name]?.total || 0;
+          if (prevVal > 0) {
+            variation = ((currVal - prevVal) / prevVal) * 100;
+          }
+        }
+
+        return { name, V, S, D, total, share, variation };
+      }).filter(r => r.name.toLowerCase().includes(searchTerm));
+
+      rows.sort((a, b) => {
+        let valA = a[state.sortCol];
+        let valB = b[state.sortCol];
+        if (valA === null || valA === undefined) valA = -Infinity;
+        if (valB === null || valB === undefined) valB = -Infinity;
+        if (typeof valA === "string") {
+          return state.sortDir === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        return state.sortDir === "asc" ? valA - valB : valB - valA;
+      });
+
+      return { rows, grandTotal };
+    }
+
+    function sortTable(col) {
+      if (state.sortCol === col) {
+        state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        state.sortCol = col;
+        state.sortDir = "desc";
+      }
+      renderTable();
+    }
+
+    function renderTable() {
+      const { rows } = getTableRowsData();
+      const tbody = document.getElementById("proteinTableBody");
+      const tfoot = document.getElementById("proteinTableFoot");
+
+      tbody.innerHTML = rows.map((r, idx) => {
+        const isSelected = state.selectedProtein === r.name;
+        const rowBg = isSelected ? "bg-ember-500/10 font-bold" : (idx % 2 === 0 ? "" : "bg-stone-50/50 dark:bg-charcoal-900/40");
+        let varHtml = `<span class="text-stone-400">--</span>`;
+        if (r.variation !== null) {
+          const sign = r.variation >= 0 ? "+" : "";
+          const colorCls = r.variation >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-smoke-red";
+          varHtml = `<span class="${colorCls}">${sign}${r.variation.toFixed(1)}%</span>`;
+        }
+        return `
+          <tr onclick="toggleProteinFromTable('${r.name}')" class="${rowBg} hover:bg-ember-500/10 cursor-pointer transition">
+            <td class="py-3.5 px-4 font-semibold text-stone-800 dark:text-stone-100 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full ${isSelected ? 'bg-ember-500 animate-ping' : 'bg-stone-300 dark:bg-charcoal-700'}"></span>
+              <span>${r.name}</span>
+            </td>
+            <td class="py-3.5 px-4 text-right font-mono text-stone-600 dark:text-stone-300">${fmtKg(r.V, 3)}</td>
+            <td class="py-3.5 px-4 text-right font-mono text-stone-600 dark:text-stone-300">${fmtKg(r.S, 3)}</td>
+            <td class="py-3.5 px-4 text-right font-mono text-stone-600 dark:text-stone-300">${fmtKg(r.D, 3)}</td>
+            <td class="py-3.5 px-4 text-right font-mono font-bold text-ember-600 dark:text-ember-400">${fmtKg(r.total, 3)}</td>
+            <td class="py-3.5 px-4 text-right font-semibold text-stone-700 dark:text-stone-200">${r.share.toFixed(1)}%</td>
+            <td class="py-3.5 px-4 text-right font-semibold">${varHtml}</td>
+          </tr>
+        `;
+      }).join("");
+
+      const sumV = rows.reduce((a, b) => a + b.V, 0);
+      const sumS = rows.reduce((a, b) => a + b.S, 0);
+      const sumD = rows.reduce((a, b) => a + b.D, 0);
+      const sumTotal = rows.reduce((a, b) => a + b.total, 0);
+
+      tfoot.innerHTML = `
+        <tr>
+          <td class="py-3.5 px-4 uppercase tracking-wider text-stone-700 dark:text-stone-200">Total General (${rows.length} cortes)</td>
+          <td class="py-3.5 px-4 text-right font-mono text-stone-700 dark:text-stone-200">${fmtKg(sumV, 3)}</td>
+          <td class="py-3.5 px-4 text-right font-mono text-stone-700 dark:text-stone-200">${fmtKg(sumS, 3)}</td>
+          <td class="py-3.5 px-4 text-right font-mono text-stone-700 dark:text-stone-200">${fmtKg(sumD, 3)}</td>
+          <td class="py-3.5 px-4 text-right font-mono text-ember-600 dark:text-ember-400 text-base">${fmtKg(sumTotal, 3)} Kg</td>
+          <td class="py-3.5 px-4 text-right text-stone-700 dark:text-stone-200">100.0%</td>
+          <td class="py-3.5 px-4 text-right text-stone-500">--</td>
+        </tr>
+      `;
+    }
+
+    function exportToCSV() {
+      const { rows } = getTableRowsData();
+      let csv = "Proteina,Viernes_Kg,Sabado_Kg,Domingo_Kg,Total_Kg,Mix_Porcentaje\n";
+      rows.forEach(r => {
+        csv += `"${r.name}",${r.V.toFixed(3)},${r.S.toFixed(3)},${r.D.toFixed(3)},${r.total.toFixed(3)},${r.share.toFixed(2)}%\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `961_SmokeHouse_Reporte_${getSelectedPeriodLabel(true)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("Reporte CSV descargado correctamente");
+    }
+
+    /**
+     * =========================================================================
+     * 7. MODAL DE CARGA RÁPIDA DE NUEVO FIN DE SEMANA
+     * =========================================================================
+     */
+    function openAddModal() {
+      const tbody = document.getElementById("modalProteinsInputs");
+      tbody.innerHTML = getAllUniqueProteins().map(p => `
+        <tr>
+          <td class="py-2 px-3 font-medium text-stone-800 dark:text-stone-200">${p}</td>
+          <td class="py-1.5 px-2">
+            <input type="number" step="0.001" min="0" data-prot="${p}" data-day="V" oninput="recalcModalTotals()" placeholder="0.00" class="modal-kg-input w-full text-right px-2 py-1 rounded-lg bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 text-stone-900 dark:text-white focus:border-ember-500 focus:outline-none" />
+          </td>
+          <td class="py-1.5 px-2">
+            <input type="number" step="0.001" min="0" data-prot="${p}" data-day="S" oninput="recalcModalTotals()" placeholder="0.00" class="modal-kg-input w-full text-right px-2 py-1 rounded-lg bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 text-stone-900 dark:text-white focus:border-ember-500 focus:outline-none" />
+          </td>
+          <td class="py-1.5 px-2">
+            <input type="number" step="0.001" min="0" data-prot="${p}" data-day="D" oninput="recalcModalTotals()" placeholder="0.00" class="modal-kg-input w-full text-right px-2 py-1 rounded-lg bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 text-stone-900 dark:text-white focus:border-ember-500 focus:outline-none" />
+          </td>
+          <td class="py-2 px-3 text-right font-mono font-bold text-ember-500" id="sub_${p.replace(/[^a-zA-Z0-9]/g, '_')}">0.000</td>
+        </tr>
+      `).join("");
+
+      document.getElementById("newFdsId").value = "";
+      document.getElementById("newFdsRange").value = "";
+      document.getElementById("modalLiveTotal").textContent = "Total calculado: 0.000 Kg";
+      switchModalTab("manual");
+
+      const modal = document.getElementById("addFdsModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeAddModal() {
+      const modal = document.getElementById("addFdsModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function switchModalTab(tab) {
+      const isManual = tab === "manual";
+      document.getElementById("viewManual").classList.toggle("hidden", !isManual);
+      document.getElementById("viewPaste").classList.toggle("hidden", isManual);
+
+      document.getElementById("tabManual").className = isManual
+        ? "pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-ember-500 text-ember-500"
+        : "pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200";
+      document.getElementById("tabPaste").className = !isManual
+        ? "pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-ember-500 text-ember-500"
+        : "pb-2.5 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200";
+    }
+
+    function recalcModalTotals() {
+      let grandTotal = 0;
+      getAllUniqueProteins().forEach(p => {
+        const v = parseFloat(document.querySelector(`input[data-prot="${p}"][data-day="V"]`)?.value) || 0;
+        const s = parseFloat(document.querySelector(`input[data-prot="${p}"][data-day="S"]`)?.value) || 0;
+        const d = parseFloat(document.querySelector(`input[data-prot="${p}"][data-day="D"]`)?.value) || 0;
+        const sub = v + s + d;
+        grandTotal += sub;
+        const subEl = document.getElementById(`sub_${p.replace(/[^a-zA-Z0-9]/g, '_')}`);
+        if (subEl) subEl.textContent = sub.toFixed(3);
+      });
+      document.getElementById("modalLiveTotal").textContent = `Total calculado: ${grandTotal.toFixed(3)} Kg`;
+    }
+
+    function parsePastedText() {
+      const raw = document.getElementById("pasteRawText").value;
+      if (!raw.trim()) {
+        showToast("Pega primero las líneas con los datos del reporte", "error");
+        return;
+      }
+
+      const lines = raw.split("\n");
+      const knownProteins = getAllUniqueProteins();
+      let matchedCount = 0;
+
+      lines.forEach(line => {
+        const cleanLine = line.replace(/^[-•*]\s*/, "").trim();
+        if (!cleanLine.includes(":")) return;
+
+        const [rawName, rawValues] = cleanLine.split(":");
+        const nameLower = rawName.trim().toLowerCase();
+
+        const matchedProt = knownProteins.find(kp => {
+          const kpLower = kp.toLowerCase();
+          return kpLower.includes(nameLower) || nameLower.includes(kpLower.split(" ")[0]);
+        });
+
+        if (matchedProt && rawValues) {
+          const vMatch = rawValues.match(/V\s*([\d.]+)/i);
+          const sMatch = rawValues.match(/S\s*([\d.]+)/i);
+          const dMatch = rawValues.match(/D\s*([\d.]+)/i);
+
+          if (vMatch || sMatch || dMatch) {
+            if (vMatch) document.querySelector(`input[data-prot="${matchedProt}"][data-day="V"]`).value = parseFloat(vMatch[1]);
+            if (sMatch) document.querySelector(`input[data-prot="${matchedProt}"][data-day="S"]`).value = parseFloat(sMatch[1]);
+            if (dMatch) document.querySelector(`input[data-prot="${matchedProt}"][data-day="D"]`).value = parseFloat(dMatch[1]);
+            matchedCount++;
+          }
+        }
+      });
+
+      recalcModalTotals();
+      switchModalTab("manual");
+      showToast(`${matchedCount} cortes procesados correctamente`);
+    }
+
+    function saveNewFDS() {
+      const id = document.getElementById("newFdsId").value.trim();
+      const range = document.getElementById("newFdsRange").value.trim() || "Nuevo Reporte";
+
+      if (!id) {
+        showToast("Por favor indica el código del FDS (ej. FDS 22.11)", "error");
+        return;
+      }
+
+      const proteinsObj = {};
+      let totalKg = 0;
+
+      getAllUniqueProteins().forEach(p => {
+        const v = parseFloat(document.querySelector(`input[data-prot="${p}"][data-day="V"]`)?.value) || 0;
+        const s = parseFloat(document.querySelector(`input[data-prot="${p}"][data-day="S"]`)?.value) || 0;
+        const d = parseFloat(document.querySelector(`input[data-prot="${p}"][data-day="D"]`)?.value) || 0;
+        const sub = Number((v + s + d).toFixed(3));
+        if (sub > 0) {
+          proteinsObj[p] = { V: v, S: s, D: d, total: sub };
+          totalKg += sub;
+        }
+      });
+
+      if (totalKg <= 0) {
+        showToast("Debes ingresar al menos un valor mayor a 0 Kg", "error");
+        return;
+      }
+
+      const existingIdx = fdsDataset.findIndex(f => normKey(f.id) === normKey(id));
+      const newEntry = {
+        id,
+        range,
+        hasDailyBreakdown: true,
+        reportedTotal: Number(totalKg.toFixed(3)),
+        proteins: proteinsObj
+      };
+
+      if (existingIdx >= 0) {
+        fdsDataset[existingIdx] = newEntry;
+      } else {
+        fdsDataset.push(newEntry);
+      }
+
+      saveManualEntryToStorage(newEntry);
+      populateFilterDropdowns();
+      document.getElementById("filterFDS").value = id;
+      closeAddModal();
+      applyFilters();
+      showToast(`Reporte ${id} (${fmtKg(totalKg, 2)} Kg) guardado y aplicado`);
+    }
+
+    function resetCustomData() {
+      localStorage.removeItem(STORAGE_KEY);
+      loadDataset();
+      populateFilterDropdowns();
+      resetFilters();
+      syncFromGoogleSheets(true);
+    }
+
+    /**
+     * =========================================================================
+     * 8. MÓDULO DE HAMBURGUESAS & SÁNDWICHES (UNIDADES)
+     * =========================================================================
+     */
+    function getFilteredBurgersStats() {
+      const catFilter = document.getElementById("filterBurgerCategory").value;
+      let activeFdsKeys = burgerFdsKeys;
+
+      if (state.selectedFDS === "RANGE" && state.rangeStart && state.rangeEnd) {
+        const rangeIds = new Set(getFilteredFdsList().map(f => normKey(f.id)));
+        activeFdsKeys = burgerFdsKeys.filter(k => rangeIds.has(normKey(k)));
+      } else if (state.selectedFDS !== "ALL") {
+        activeFdsKeys = burgerFdsKeys.filter(k => normKey(k) === normKey(state.selectedFDS));
+      }
+
+      const items = burgersDataset
+        .filter(item => catFilter === "ALL" || item.type === catFilter)
+        .map(item => {
+          let V = 0, S = 0, D = 0;
+          activeFdsKeys.forEach(k => {
+            if (item.fds[k]) {
+              V += item.fds[k].V || 0;
+              S += item.fds[k].S || 0;
+              D += item.fds[k].D || 0;
+            }
+          });
+          let total = V + S + D;
+          if (state.selectedDay === "V") total = V;
+          if (state.selectedDay === "S") total = S;
+          if (state.selectedDay === "D") total = D;
+
+          return { name: item.name, type: item.type, V, S, D, total };
+        });
+
+      return { items, activeFdsKeys };
+    }
+
+    function renderBurgersDashboard() {
+      const { items, activeFdsKeys } = getFilteredBurgersStats();
+      const colors = getChartColors();
+
+      const fdsText = activeFdsKeys.length === 0
+        ? `<strong>${getSelectedPeriodLabel(false)}</strong> (Sin registro de burgers en este período)`
+        : state.selectedFDS === "ALL"
+          ? `<strong>${burgerFdsKeys.length} Fines de Semana (desde 18/10)</strong>`
+          : `<strong>${getSelectedPeriodLabel(false)}</strong> (${activeFdsKeys.length} FDS con registro)`;
+      document.getElementById("burgersContextText").innerHTML =
+        `Mostrando <strong>Hamburguesas & Sándwiches</strong> • Período: ${fdsText}`;
+
+      const totalUnits = items.reduce((acc, i) => acc + i.total, 0);
+      const numFds = Math.max(1, activeFdsKeys.length);
+      document.getElementById("kpiBurgersTotal").textContent = totalUnits;
+      document.getElementById("kpiBurgersAvgFds").textContent = `${(totalUnits / numFds).toFixed(1)} Unds/FDS`;
+
+      const sortedByQty = [...items].sort((a, b) => b.total - a.total);
+      const topItem = sortedByQty[0] || { name: "--", total: 0 };
+      const topShare = totalUnits > 0 ? ((topItem.total / totalUnits) * 100).toFixed(1) : "0.0";
+      document.getElementById("kpiBurgersTopName").textContent = topItem.name;
+      document.getElementById("kpiBurgersTopQty").textContent = `${topItem.total} Unds vendidas`;
+      document.getElementById("kpiBurgersTopShare").textContent = `${topShare}% del total`;
+
+      let allBurgersUnits = 0, allSandwichesUnits = 0;
+      burgersDataset.forEach(item => {
+        activeFdsKeys.forEach(k => {
+          if (item.fds[k]) {
+            const d = item.fds[k];
+            const val = state.selectedDay === "ALL" ? (d.V + d.S + d.D) : (d[state.selectedDay] || 0);
+            if (item.type === "BURGER") allBurgersUnits += val;
+            else allSandwichesUnits += val;
+          }
+        });
+      });
+      const grandSplit = allBurgersUnits + allSandwichesUnits;
+      const bPct = grandSplit > 0 ? ((allBurgersUnits / grandSplit) * 100).toFixed(1) : "0.0";
+      const sPct = grandSplit > 0 ? ((allSandwichesUnits / grandSplit) * 100).toFixed(1) : "0.0";
+      document.getElementById("kpiBurgersSplitRatio").textContent = `${bPct}% / ${sPct}%`;
+      document.getElementById("kpiBurgersCatCounts").textContent = `${allBurgersUnits} Burgers • ${allSandwichesUnits} Sándw.`;
+
+      const sumV = items.reduce((acc, i) => acc + i.V, 0);
+      const sumS = items.reduce((acc, i) => acc + i.S, 0);
+      const sumD = items.reduce((acc, i) => acc + i.D, 0);
+      const sumDays = sumV + sumS + sumD;
+      const dayCandidates = [
+        { key: "V", label: "Viernes", val: sumV },
+        { key: "S", label: "Sábado", val: sumS },
+        { key: "D", label: "Domingo", val: sumD }
+      ];
+      const bestDay = state.selectedDay === "ALL"
+        ? dayCandidates.reduce((m, c) => c.val > m.val ? c : m, dayCandidates[0])
+        : dayCandidates.find(d => d.key === state.selectedDay);
+      const bestDayPct = sumDays > 0 ? ((bestDay.val / sumDays) * 100).toFixed(1) : "0.0";
+      document.getElementById("kpiBurgersBestDay").textContent = bestDay.label;
+      document.getElementById("kpiBurgersBestDayQty").textContent = `${bestDay.val} Unds acumuladas`;
+      document.getElementById("kpiBurgersBestDayShare").textContent = `${bestDayPct}% peso`;
+
+      const catFilter = document.getElementById("filterBurgerCategory").value;
+      const filteredCatalog = burgersDataset.filter(i => catFilter === "ALL" || i.type === catFilter);
+      const histV = burgerFdsKeys.map(k => filteredCatalog.reduce((acc, it) => acc + (it.fds[k]?.V || 0), 0));
+      const histS = burgerFdsKeys.map(k => filteredCatalog.reduce((acc, it) => acc + (it.fds[k]?.S || 0), 0));
+      const histD = burgerFdsKeys.map(k => filteredCatalog.reduce((acc, it) => acc + (it.fds[k]?.D || 0), 0));
+
+      const ctxHist = document.getElementById("chartBurgersHistory").getContext("2d");
+      if (charts.burgersHistory) charts.burgersHistory.destroy();
+      charts.burgersHistory = new Chart(ctxHist, {
+        type: "bar",
+        data: {
+          labels: burgerFdsKeys,
+          datasets: [
+            { label: "Viernes", data: histV, backgroundColor: "#FBBF24", borderRadius: 4 },
+            { label: "Sábado", data: histS, backgroundColor: "#D97706", borderRadius: 4 },
+            { label: "Domingo", data: histD, backgroundColor: "#DC2626", borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { color: colors.text, boxWidth: 12, font: { size: 11, weight: "600" } } },
+            tooltip: { backgroundColor: "#18181C" }
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { color: colors.textStrong, font: { weight: "600" } } },
+            y: { stacked: true, beginAtZero: true, grid: { color: colors.grid }, ticks: { color: colors.text } }
+          }
+        }
+      });
+
+      const ctxRank = document.getElementById("chartBurgersRanking").getContext("2d");
+      if (charts.burgersRanking) charts.burgersRanking.destroy();
+      charts.burgersRanking = new Chart(ctxRank, {
+        type: "bar",
+        data: {
+          labels: sortedByQty.map(i => i.name.replace("961 ", "")),
+          datasets: [{
+            label: "Unidades",
+            data: sortedByQty.map(i => i.total),
+            backgroundColor: sortedByQty.map(i => i.type === "BURGER" ? "#D97706" : "#DC2626"),
+            borderRadius: 5,
+            barThickness: 18
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#18181C",
+              callbacks: {
+                label: (c) => ` ${c.parsed.x} Unds`
+              }
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: colors.grid }, ticks: { color: colors.text } },
+            y: { grid: { display: false }, ticks: { color: colors.textStrong, font: { size: 11, weight: "500" } } }
+          }
+        }
+      });
+
+      const tbody = document.getElementById("burgersTableBody");
+      const tfoot = document.getElementById("burgersTableFoot");
+
+      tbody.innerHTML = sortedByQty.map((r, idx) => {
+        const share = totalUnits > 0 ? ((r.total / totalUnits) * 100).toFixed(1) : "0.0";
+        const badge = r.type === "BURGER"
+          ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">BURGER</span>`
+          : `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-smoke-red/15 text-smoke-red">SÁNDWICH</span>`;
+
+        return `
+          <tr class="hover:bg-ember-500/5 transition">
+            <td class="py-3 px-4 font-semibold text-stone-800 dark:text-stone-100 flex items-center gap-2.5">
+              <span class="w-5 h-5 rounded-md bg-stone-200 dark:bg-charcoal-800 text-[10px] font-bold flex items-center justify-center text-stone-600 dark:text-stone-400">${idx + 1}</span>
+              <span>${r.name}</span>
+            </td>
+            <td class="py-3 px-4">${badge}</td>
+            <td class="py-3 px-4 text-right font-mono text-stone-600 dark:text-stone-300 ${state.selectedDay === 'V' ? 'font-bold text-ember-500' : ''}">${r.V}</td>
+            <td class="py-3 px-4 text-right font-mono text-stone-600 dark:text-stone-300 ${state.selectedDay === 'S' ? 'font-bold text-ember-500' : ''}">${r.S}</td>
+            <td class="py-3 px-4 text-right font-mono text-stone-600 dark:text-stone-300 ${state.selectedDay === 'D' ? 'font-bold text-ember-500' : ''}">${r.D}</td>
+            <td class="py-3 px-4 text-right font-mono font-bold text-ember-600 dark:text-ember-400">${r.total}</td>
+            <td class="py-3 px-4 text-right font-semibold text-stone-700 dark:text-stone-200">${share}%</td>
+          </tr>
+        `;
+      }).join("");
+
+      tfoot.innerHTML = `
+        <tr>
+          <td colspan="2" class="py-3.5 px-4 uppercase tracking-wider text-stone-700 dark:text-stone-200">Total General (${sortedByQty.length} productos)</td>
+          <td class="py-3.5 px-4 text-right font-mono text-stone-700 dark:text-stone-200">${sumV}</td>
+          <td class="py-3.5 px-4 text-right font-mono text-stone-700 dark:text-stone-200">${sumS}</td>
+          <td class="py-3.5 px-4 text-right font-mono text-stone-700 dark:text-stone-200">${sumD}</td>
+          <td class="py-3.5 px-4 text-right font-mono text-ember-600 dark:text-ember-400 text-base">${totalUnits} Unds</td>
+          <td class="py-3.5 px-4 text-right text-stone-700 dark:text-stone-200">100.0%</td>
+        </tr>
+      `;
+    }
+
+    function exportBurgersCSV() {
+      const { items } = getFilteredBurgersStats();
+      const totalUnits = items.reduce((acc, i) => acc + i.total, 0);
+      let csv = "Producto,Linea,Viernes_Unds,Sabado_Unds,Domingo_Unds,Total_Unds,Mix_Porcentaje\n";
+      items.sort((a, b) => b.total - a.total).forEach(r => {
+        const share = totalUnits > 0 ? ((r.total / totalUnits) * 100).toFixed(2) : "0.00";
+        csv += `"${r.name}",${r.type},${r.V},${r.S},${r.D},${r.total},${share}%\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `961_SmokeHouse_Burgers_Sandwiches_${getSelectedPeriodLabel(true)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("Reporte CSV de Burgers & Sándwiches descargado");
+    }
+
+    /**
+     * =========================================================================
+     * 9. TEMA CLARO / OSCURO E INICIALIZACIÓN
+     * =========================================================================
+     */
+    function toggleTheme() {
+      document.documentElement.classList.toggle("dark");
+      renderHistoryChart();
+      renderDaysChart();
+      renderRankingChart();
+      renderSidesChart();
+      if (state.activeView === "burgers") {
+        renderBurgersDashboard();
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadDataset();
+      populateFilterDropdowns();
+      applyFilters();
+      renderSidesChart();
+      if (window.lucide) lucide.createIcons();
+
+      // Sincroniza automáticamente al abrir y cada 2 minutos mientras esté visible
+      syncFromGoogleSheets(false);
+      setInterval(() => {
+        if (!document.hidden) syncFromGoogleSheets(false);
+      }, AUTO_SYNC_INTERVAL_MS);
+    });
+  </script>
+</body>
+</html>
