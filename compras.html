@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>961 Smoke House | Planificación de Compras & Mermas</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter & Oswald -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js & Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- SheetJS para leer archivos Excel (.xlsx / .xls / .csv) directamente en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Oswald', 'sans-serif'],
+          },
+          colors: {
+            charcoal: {
+              950: '#0B0B0D',
+              900: '#121215',
+              850: '#18181C',
+              800: '#1E1E24',
+              700: '#2A2A32',
+            },
+            ember: {
+              400: '#F59E0B',
+              500: '#D97706',
+              600: '#B45309',
+            },
+            smoke: {
+              red: '#DC2626',
+              crimson: '#991B1B',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(217, 119, 6, 0.35); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(217, 119, 6, 0.65); }
+    .ember-glow { box-shadow: 0 0 24px -6px rgba(217, 119, 6, 0.25); }
+    .glass-bar { backdrop-filter: blur(14px); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body, div, header, section, table, select, input, button {
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+    }
+  </style>
+</head>
+<body class="bg-stone-100 text-stone-900 dark:bg-charcoal-950 dark:text-stone-100 font-sans antialiased min-h-screen pb-24 sm:pb-10 selection:bg-ember-500 selection:text-white">
+
+  <!-- Toast flotante (reemplaza alert/confirm) -->
+  <div id="toastContainer" class="fixed bottom-20 sm:bottom-5 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ======================================================================= -->
+  <!-- HEADER COMPACTO MOBILE-FIRST                                            -->
+  <!-- ======================================================================= -->
+  <header class="sticky top-0 z-30 border-b border-stone-200/80 dark:border-charcoal-700/80 bg-white/90 dark:bg-charcoal-900/90 glass-bar">
+    <div class="max-w-[1440px] mx-auto px-3.5 sm:px-6 py-3">
+      <div class="flex items-center justify-between gap-3">
+
+        <!-- Marca y semana -->
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-ember-500 via-smoke-red to-charcoal-900 p-0.5 shadow-lg ember-glow shrink-0">
+            <div class="w-full h-full bg-charcoal-900 rounded-[10px] flex items-center justify-center">
+              <i data-lucide="shopping-cart" class="w-5 h-5 text-ember-400"></i>
+            </div>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h1 class="font-display text-lg sm:text-2xl font-bold uppercase tracking-wide text-stone-900 dark:text-white truncate">
+                961 <span class="text-ember-500">COMPRAS</span>
+              </h1>
+              <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-ember-500/15 text-ember-600 dark:text-ember-400 border border-ember-500/30">
+                Gerencia • Privado
+              </span>
+            </div>
+            <p id="headerWeekLabel" class="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 truncate">
+              Semana 16.11 al 22.11 • 14 Proteínas
+            </p>
+          </div>
+        </div>
+
+        <!-- Controles rápidos -->
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <!-- Input oculto para subir Planific compras IA.xlsx / .csv -->
+          <input id="excelFileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelUpload(event)" />
+
+          <!-- Toggle Unidad Kg / g -->
+          <div class="inline-flex rounded-xl p-0.5 bg-stone-200/80 dark:bg-charcoal-800 border border-stone-300/70 dark:border-charcoal-700 text-[11px] font-bold">
+            <button id="btnUnitKg" onclick="setDisplayUnit('kg')" class="px-2.5 py-1.5 rounded-lg bg-ember-500 text-white shadow-sm">Kg</button>
+            <button id="btnUnitG" onclick="setDisplayUnit('g')" class="px-2.5 py-1.5 rounded-lg text-stone-600 dark:text-stone-300">g</button>
+          </div>
+
+          <!-- Botón Subir Excel (.xlsx / .xls / .csv) -->
+          <button id="btnUploadExcel" onclick="triggerExcelUpload()" title="Cargar Planific compras IA.xlsx o CSV" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl border border-ember-500/40 bg-ember-500/15 text-ember-600 dark:text-ember-400 hover:bg-ember-500/25 text-xs font-bold transition">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Subir Excel</span>
+          </button>
+
+          <!-- Sincronizar Ventas desde Google Sheets -->
+          <button id="btnSyncSales" onclick="openSyncSalesModal()" title="Proyectar desde Ventas Reales (Google Sheets)" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span class="hidden md:inline">Ventas Sheets</span>
+          </button>
+
+          <!-- Botón Copiar Pedido WhatsApp (Desktop) -->
+          <button onclick="openWhatsAppModal()" class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-bold shadow-md transition">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>Pedido WhatsApp</span>
+          </button>
+
+          <!-- Tema Claro / Oscuro -->
+          <button onclick="toggleTheme()" title="Tema Claro / Oscuro" class="p-2 rounded-xl border border-stone-300 dark:border-charcoal-700 bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 hover:border-ember-500">
+            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-ember-400"></i>
+            <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navegación Desktop (en móvil va fija abajo para manejo con pulgar) -->
+      <div class="hidden sm:flex items-center justify-between mt-3 pt-3 border-t border-stone-200/70 dark:border-charcoal-800 gap-3">
+        <div class="inline-flex rounded-xl p-1 bg-stone-200/80 dark:bg-charcoal-800 border border-stone-300/70 dark:border-charcoal-700">
+          <button data-tab="pedido" onclick="switchTab('pedido')" class="nav-tab-desktop inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide bg-gradient-to-r from-ember-500 to-smoke-red text-white shadow-sm">
+            <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i>
+            <span>Pedido & Stock</span>
+          </button>
+          <button data-tab="mermas" onclick="switchTab('mermas')" class="nav-tab-desktop inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white">
+            <i data-lucide="flame" class="w-3.5 h-3.5"></i>
+            <span>Mermas & Ahumador</span>
+          </button>
+          <button data-tab="matriz" onclick="switchTab('matriz')" class="nav-tab-desktop inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white">
+            <i data-lucide="table-2" class="w-3.5 h-3.5"></i>
+            <span>Matriz Completa & Costos</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs">
+          <span id="demandSourceBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span>Base: Excel Sem 16.11–22.11</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================================= -->
+  <!-- CONTENIDO PRINCIPAL                                                     -->
+  <!-- ======================================================================= -->
+  <main class="max-w-[1440px] mx-auto px-3.5 sm:px-6 py-4 sm:py-6 space-y-5">
+
+    <!-- Banner de confirmación en vivo al subir un archivo Excel -->
+    <div id="excelUploadBanner" class="hidden rounded-2xl bg-emerald-500/10 border border-emerald-500/35 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+      <div class="flex items-start gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse mt-1 shrink-0"></span>
+        <div id="excelUploadBannerText" class="text-emerald-800 dark:text-emerald-200 leading-relaxed"></div>
+      </div>
+      <button onclick="dismissUploadBanner()" class="self-end sm:self-center text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline shrink-0">
+        Ocultar
+      </button>
+    </div>
+
+    <!-- 1. KPIs EJECUTIVOS (2x2 EN MÓVIL, 4 COLUMNAS EN DESKTOP) -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <!-- KPI 1: Carne Neta a Comprar -->
+      <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-ember-500/40 p-4 shadow-sm ember-glow">
+        <div class="flex items-start justify-between gap-2">
+          <p class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">Neto a Comprar</p>
+          <span class="p-1.5 rounded-lg bg-ember-500/15 text-ember-500 shrink-0"><i data-lucide="shopping-bag" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <h2 id="kpiNetBuy" class="font-display text-2xl sm:text-4xl font-bold text-ember-600 dark:text-ember-400">0.00</h2>
+          <span class="unit-label text-xs sm:text-sm font-bold text-ember-500">Kg</span>
+        </div>
+        <div class="mt-2.5 pt-2 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-[11px]">
+          <span id="kpiCutsToBuy" class="font-semibold text-smoke-red">0 cortes urgentes</span>
+          <span id="kpiBudgetEst" class="font-bold text-emerald-600 dark:text-emerald-400">$0 est.</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Ventas Base FDS -->
+      <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-4 shadow-sm">
+        <div class="flex items-start justify-between gap-2">
+          <p class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">Demanda FDS</p>
+          <span class="p-1.5 rounded-lg bg-smoke-red/15 text-smoke-red shrink-0"><i data-lucide="trending-up" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <h2 id="kpiTotalSales" class="font-display text-2xl sm:text-4xl font-bold text-stone-900 dark:text-white">0.00</h2>
+          <span class="unit-label text-xs sm:text-sm font-bold text-stone-400">Kg</span>
+        </div>
+        <div class="mt-2.5 pt-2 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
+          <span id="kpiGrossNeed">Bruta: 0 Kg</span>
+          <span id="kpiScenarioBadge" class="font-bold text-ember-500">Base 0%</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Inventario Cierre Crudo -->
+      <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-4 shadow-sm">
+        <div class="flex items-start justify-between gap-2">
+          <p class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">Inv. Cierre Crudo</p>
+          <span class="p-1.5 rounded-lg bg-sky-500/15 text-sky-500 shrink-0"><i data-lucide="snowflake" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <h2 id="kpiInvRaw" class="font-display text-2xl sm:text-4xl font-bold text-stone-900 dark:text-white">0.00</h2>
+          <span class="unit-label text-xs sm:text-sm font-bold text-stone-400">Kg</span>
+        </div>
+        <div class="mt-2.5 pt-2 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
+          <span id="kpiInvCooked">Cocido: 0 Kg</span>
+          <span id="kpiCoveredCount" class="font-semibold text-emerald-500">0 cubiertos</span>
+        </div>
+      </div>
+
+      <!-- KPI 4: Rendimiento & Retazos Ahumador -->
+      <div class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-4 shadow-sm">
+        <div class="flex items-start justify-between gap-2">
+          <p class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">Rend. Ahumador</p>
+          <span class="p-1.5 rounded-lg bg-amber-500/15 text-amber-500 shrink-0"><i data-lucide="flame" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <h2 id="kpiSmokerYield" class="font-display text-2xl sm:text-4xl font-bold text-stone-900 dark:text-white">0.0%</h2>
+          <span class="text-[11px] font-semibold text-stone-400">1ª Cal.</span>
+        </div>
+        <div class="mt-2.5 pt-2 border-t border-stone-100 dark:border-charcoal-800 flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
+          <span id="kpiRetazosTotal">Retazos: 0 Kg</span>
+          <span id="kpiMermaAvg" class="font-semibold text-amber-500">Merma --%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. SIMULADOR RÁPIDO DE ESCENARIOS -->
+    <section class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-3.5 sm:p-4 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="p-1.5 rounded-lg bg-ember-500/15 text-ember-500"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i></span>
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-stone-800 dark:text-stone-100">Simulador de Proyección de Demanda</p>
+            <p class="text-[11px] text-stone-500 dark:text-stone-400">Ajusta el volumen esperado (ej. quincena, feriado o evento) y recalcula la compra al instante</p>
+          </div>
+        </div>
+
+        <!-- Botones táctiles de escenario -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          <button data-scenario="-15" onclick="setScenario(-15)" class="scenario-btn shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-charcoal-700">-15%</button>
+          <button data-scenario="0" onclick="setScenario(0)" class="scenario-btn shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-ember-500 text-white shadow-sm">Base (0%)</button>
+          <button data-scenario="15" onclick="setScenario(15)" class="scenario-btn shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-charcoal-700">+15%</button>
+          <button data-scenario="25" onclick="setScenario(25)" class="scenario-btn shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-charcoal-700">+25%</button>
+          <button data-scenario="40" onclick="setScenario(40)" class="scenario-btn shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-charcoal-700">+40% Feriado</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- PESTAÑA 1: PEDIDO & STOCK (VISTA PRINCIPAL MOBILE-FIRST)                -->
+    <!-- ======================================================================= -->
+    <div id="tab-pedido" class="space-y-4">
+
+      <!-- Barra de filtros rápidos y buscador -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          <button data-status="ALL" onclick="setStatusFilter('ALL')" class="status-pill shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold bg-ember-500 text-white shadow-sm">
+            Todos (<span id="cntAll">14</span>)
+          </button>
+          <button data-status="BUY" onclick="setStatusFilter('BUY')" class="status-pill shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700 text-smoke-red">
+            🔴 Comprar Ya (<span id="cntBuy">0</span>)
+          </button>
+          <button data-status="WARN" onclick="setStatusFilter('WARN')" class="status-pill shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700 text-amber-500">
+            🟡 Revisar (<span id="cntWarn">0</span>)
+          </button>
+          <button data-status="OK" onclick="setStatusFilter('OK')" class="status-pill shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700 text-emerald-500">
+            🟢 Cubierto (<span id="cntOk">0</span>)
+          </button>
+        </div>
+
+        <div class="relative w-full sm:w-64">
+          <i data-lucide="search" class="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input id="searchCutInput" type="text" oninput="renderAll()" placeholder="Buscar corte (ej. Brisket, Ribs)..." class="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700 focus:outline-none focus:border-ember-500" />
+        </div>
+      </div>
+
+      <!-- Grid de Tarjetas Mobile-First (1 col móvil, 2 cols tablet, 3 cols desktop) -->
+      <div id="purchaseCardsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
+        <!-- Generado dinámicamente por JS -->
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- PESTAÑA 2: MERMAS, RETAZOS & AHUMADOR                                   -->
+    <!-- ======================================================================= -->
+    <div id="tab-mermas" class="hidden space-y-5">
+
+      <!-- Gráficos comparativos -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Gráfico 1: Necesidad Bruta vs Inventario vs Pedido Neto -->
+        <div class="lg:col-span-7 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-4 sm:p-5 shadow-sm flex flex-col">
+          <div class="mb-3">
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-ember-500"></span>
+              Balance de Compra por Corte (Top Demanda)
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Comparación visual: Necesidad Bruta c/Merma vs. Inventario Cierre vs. Neto a Comprar</p>
+          </div>
+          <div class="relative flex-1 min-h-[320px] w-full">
+            <canvas id="chartBalance"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 2: Rendimiento del Ahumador (1a Calidad vs Retazos vs Merma) -->
+        <div class="lg:col-span-5 rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-4 sm:p-5 shadow-sm flex flex-col">
+          <div class="mb-3">
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide flex items-center gap-2">
+              <span class="w-1.5 h-5 rounded-full bg-smoke-red"></span>
+              Descomposición del Ahumador (%)
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">De cada 100% que entra al ahumador: 1ª Calidad vs. Retazos vs. Merma de cocción</p>
+          </div>
+          <div class="relative flex-1 min-h-[320px] w-full">
+            <canvas id="chartSmokerYield"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tarjeta de Retazos / Puntas Aprovechables -->
+      <section class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 p-4 sm:p-5 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide flex items-center gap-2">
+              <i data-lucide="recycle" class="w-5 h-5 text-emerald-500"></i>
+              Control de Retazos / Puntas Aprovechables
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Subproducto real generado en la semana para Briscachapas, Briscarepas, Nachos, Chili y Sándwiches</p>
+          </div>
+          <span id="retazosBadge" class="inline-flex items-center px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold self-start sm:self-auto">
+            Total: 12.75 Kg
+          </span>
+        </div>
+        <div id="retazosGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <!-- Generado por JS -->
+        </div>
+      </section>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- PESTAÑA 3: MATRIZ COMPLETA & COSTOS EDITABLES                           -->
+    <!-- ======================================================================= -->
+    <div id="tab-matriz" class="hidden space-y-4">
+      <section class="rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700/80 shadow-sm overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-stone-200 dark:border-charcoal-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase tracking-wide flex items-center gap-2">
+              <i data-lucide="table-2" class="w-5 h-5 text-ember-500"></i>
+              Matriz Completa Editable (Espejo de tu Excel)
+            </h3>
+            <p class="text-xs text-stone-500 dark:text-stone-400">Edita Inventario Crudo, Inv. Cocidos o Costo ($/Kg) directo en la tabla; se guarda automáticamente en tu equipo</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="triggerExcelUpload()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-ember-500/40 bg-ember-500/10 text-ember-600 dark:text-ember-400 hover:bg-ember-500/20 transition">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span>Subir Excel (.xlsx)</span>
+            </button>
+            <button onclick="resetEdits()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-stone-300 dark:border-charcoal-700 hover:border-smoke-red hover:text-smoke-red transition">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              <span>Restaurar Excel Base</span>
+            </button>
+            <button onclick="exportPurchaseCSV()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-ember-500 hover:bg-ember-400 text-white shadow transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Exportar CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-stone-50 dark:bg-charcoal-900 text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 border-b border-stone-200 dark:border-charcoal-700">
+                <th class="py-3 px-3 sticky left-0 bg-stone-50 dark:bg-charcoal-900 z-10 min-w-[175px]">Corte / Producto</th>
+                <th class="py-3 px-2.5 text-right">Entrada Ahum.</th>
+                <th class="py-3 px-2.5 text-right">Merma %</th>
+                <th class="py-3 px-2.5 text-right">Cocido 1ª</th>
+                <th class="py-3 px-2.5 text-right">Retazos</th>
+                <th class="py-3 px-2.5 text-right">Ventas FDS</th>
+                <th class="py-3 px-2.5 text-right">Bruta c/Merma</th>
+                <th class="py-3 px-2.5 text-right">Inv. Crudo (Edit)</th>
+                <th class="py-3 px-2.5 text-right">Inv. Cocido (Edit)</th>
+                <th class="py-3 px-2.5 text-right text-ember-500">Neto Comprar</th>
+                <th class="py-3 px-2.5 text-right">$/Kg (Edit)</th>
+                <th class="py-3 px-3 text-right text-emerald-500">Presupuesto $</th>
+              </tr>
+            </thead>
+            <tbody id="matrixTableBody" class="divide-y divide-stone-100 dark:divide-charcoal-800"></tbody>
+            <tfoot id="matrixTableFoot" class="bg-stone-100/90 dark:bg-charcoal-900 font-bold border-t-2 border-ember-500/40"></tfoot>
+          </table>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- ======================================================================= -->
+  <!-- BARRA DE NAVEGACIÓN INFERIOR FIJA PARA MÓVILES (PULGAR-FRIENDLY)        -->
+  <!-- ======================================================================= -->
+  <nav class="sm:hidden fixed bottom-0 inset-x-0 z-40 border-t border-stone-200 dark:border-charcoal-700 bg-white/95 dark:bg-charcoal-900/95 glass-bar px-2 py-1.5">
+    <div class="grid grid-cols-4 gap-1">
+      <button data-tab="pedido" onclick="switchTab('pedido')" class="nav-tab-mobile flex flex-col items-center justify-center py-1.5 rounded-xl text-ember-500 bg-ember-500/10">
+        <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+        <span class="text-[10px] font-bold mt-0.5">Pedido</span>
+      </button>
+      <button data-tab="mermas" onclick="switchTab('mermas')" class="nav-tab-mobile flex flex-col items-center justify-center py-1.5 rounded-xl text-stone-500 dark:text-stone-400">
+        <i data-lucide="flame" class="w-4 h-4"></i>
+        <span class="text-[10px] font-semibold mt-0.5">Mermas</span>
+      </button>
+      <button data-tab="matriz" onclick="switchTab('matriz')" class="nav-tab-mobile flex flex-col items-center justify-center py-1.5 rounded-xl text-stone-500 dark:text-stone-400">
+        <i data-lucide="table-2" class="w-4 h-4"></i>
+        <span class="text-[10px] font-semibold mt-0.5">Matriz</span>
+      </button>
+      <button onclick="openWhatsAppModal()" class="flex flex-col items-center justify-center py-1.5 rounded-xl bg-emerald-600 text-white shadow">
+        <i data-lucide="send" class="w-4 h-4"></i>
+        <span class="text-[10px] font-bold mt-0.5">WhatsApp</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL 1: PEDIDO LISTO PARA WHATSAPP                                     -->
+  <!-- ======================================================================= -->
+  <div id="whatsappModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="bg-white dark:bg-charcoal-900 border border-stone-200 dark:border-charcoal-700 rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-200 dark:border-charcoal-800 flex items-center justify-between bg-stone-50 dark:bg-charcoal-850">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase text-stone-900 dark:text-white">Orden de Compra para WhatsApp</h3>
+            <p class="text-[11px] text-stone-500 dark:text-stone-400">Lista limpia con los cortes que necesitan reposición</p>
+          </div>
+        </div>
+        <button onclick="closeWhatsAppModal()" class="p-2 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-3">
+        <textarea id="whatsappTextArea" rows="13" class="w-full p-3.5 rounded-xl text-xs font-mono bg-stone-100 dark:bg-charcoal-950 border border-stone-300 dark:border-charcoal-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-emerald-500 leading-relaxed"></textarea>
+        <p class="text-[11px] text-stone-500 dark:text-stone-400">
+          Puedes editar cualquier línea antes de copiar o abrir directamente WhatsApp.
+        </p>
+      </div>
+
+      <div class="px-5 py-3.5 border-t border-stone-200 dark:border-charcoal-800 bg-stone-50 dark:bg-charcoal-850 flex flex-wrap items-center justify-end gap-2">
+        <button onclick="closeWhatsAppModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-stone-300">Cerrar</button>
+        <button onclick="copyWhatsAppOrder()" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase shadow transition">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+          <span>Copiar Texto</span>
+        </button>
+        <a id="btnOpenWaLink" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-ember-500 hover:bg-ember-400 text-white text-xs font-bold uppercase shadow transition">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+          <span>Abrir WhatsApp</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL 2: SINCRONIZAR DEMANDA DESDE GOOGLE SHEETS (VENTAS REALES)        -->
+  <!-- ======================================================================= -->
+  <div id="syncSalesModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="bg-white dark:bg-charcoal-900 border border-stone-200 dark:border-charcoal-700 rounded-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-stone-200 dark:border-charcoal-800 flex items-center justify-between bg-stone-50 dark:bg-charcoal-850">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+            <i data-lucide="database" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-display text-lg font-bold uppercase text-stone-900 dark:text-white">Conectar Ventas Reales (Sheets)</h3>
+            <p class="text-[11px] text-stone-500 dark:text-stone-400">Lee tu pestaña Proteinas de Google Sheets y proyecta la compra</p>
+          </div>
+        </div>
+        <button onclick="closeSyncSalesModal()" class="p-2 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <p class="text-stone-600 dark:text-stone-300 leading-relaxed">
+          Esta función se conecta directamente a tu Google Sheet de ventas reales de <strong>961 Smoke House</strong> (sin proxies) y sustituye la columna <strong>Ventas FDS</strong> con la demanda que elijas, conservando tus mermas e inventarios actuales:
+        </p>
+
+        <div class="grid grid-cols-1 gap-2.5">
+          <button onclick="fetchSalesFromGoogleSheet('LAST')" class="flex items-center justify-between p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition">
+            <div>
+              <p class="font-bold text-emerald-700 dark:text-emerald-300">Usar Último FDS de Google Sheets</p>
+              <p class="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Proyecta la compra basándose en las ventas del último fin de semana cerrado</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-emerald-500 shrink-0"></i>
+          </button>
+
+          <button onclick="fetchSalesFromGoogleSheet('AVG4')" class="flex items-center justify-between p-3.5 rounded-xl border border-ember-500/40 bg-ember-500/10 hover:bg-ember-500/20 text-left transition">
+            <div>
+              <p class="font-bold text-ember-700 dark:text-ember-300">Usar Promedio de los Últimos 4 FDS</p>
+              <p class="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Suaviza picos puntuales usando la demanda promedio real del último mes</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-ember-500 shrink-0"></i>
+          </button>
+
+          <button onclick="restoreExcelDemand()" class="flex items-center justify-between p-3.5 rounded-xl border border-stone-300 dark:border-charcoal-700 bg-stone-50 dark:bg-charcoal-800 hover:border-ember-500 text-left transition">
+            <div>
+              <p class="font-bold text-stone-700 dark:text-stone-200">Volver a Base del Excel (16.11 al 22.11)</p>
+              <p class="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">Restaura exactamente las cifras de la copia de Excel compartida</p>
+            </div>
+            <i data-lucide="rotate-ccw" class="w-4 h-4 text-stone-400 shrink-0"></i>
+          </button>
+        </div>
+
+        <div id="syncModalFeedback" class="hidden p-3 rounded-xl bg-stone-100 dark:bg-charcoal-800 text-[11px] font-medium text-stone-600 dark:text-stone-300"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- SCRIPT PRINCIPAL                                                        -->
+  <!-- ======================================================================= -->
+  <script>
+    /**
+     * =========================================================================
+     * 1. DATOS REALES DE TU HOJA DE COMPRAS (SEMANA DEL 16.11 al 22.11)
+     *    Convertidos internamente a Kilogramos (Kg) exactos a partir de tu tabla
+     * =========================================================================
+     */
+    const GOOGLE_SHEET_ID = "1d_c9reoHFR953f0C12mjOlEAFLRchiac6V5atEyrVDU";
+    const GID_PROTEINAS = "0";
+    const STORAGE_KEY = "961_compras_state_v3";
+
+    // Mapeo entre los nombres oficiales del Google Sheet de Ventas y tu hoja de Compras
+    const SALES_SHEET_TO_PURCHASE_ID = {
+      "brisketres": "brisket",
+      "brisket": "brisket",
+      "spareribscerdo": "spare_ribs",
+      "spareribs": "spare_ribs",
+      "shortribs": "short_ribs",
+      "porkbelly": "porkbelly",
+      "rodilladecochino": "rodilla",
+      "primeribs": "prime_ribs",
+      "flatiron": "flat_iron",
+      "lomito": "lomito",
+      "pastrami": "pastrami",
+      "churrascodepollo": "pollo",
+      "costilladecordero": "cordero",
+      "ribeye": "ribeye",
+      "portertbone961": "tbone"
+    };
+
+    const INITIAL_ITEMS = [
+      {
+        id: "brisket",
+        name: "PECHO DE RES ENTERO",
+        shortName: "Brisket (Pecho)",
+        category: "AHUMADO",
+        supplier: "Res / Carnicería",
+        purchasedRaw: 69.880,
+        cleanRaw: 25.000,
+        mermaPct: 32.60,
+        smokerIn: 25.000,
+        cookedTotal: 16.850,
+        retazos: 3.390,
+        cookedFirst: 13.460,
+        excelSecondFactorPct: 29.63,
+        excelSecondFactorMode: "loss",
+        salesV: 3.430, salesS: 6.730, salesD: 8.250,
+        invRaw: 1.010,
+        invCooked: 12.96612,
+        costPerKg: 0
+      },
+      {
+        id: "spare_ribs",
+        name: "SPARE RIBS - COSTILLAS CARNICERO",
+        shortName: "Spare Ribs (Cerdo)",
+        category: "AHUMADO",
+        supplier: "Cerdo / Carnicería",
+        purchasedRaw: 34.700,
+        cleanRaw: 19.250,
+        mermaPct: 18.96,
+        smokerIn: 19.250,
+        cookedTotal: 15.600,
+        retazos: 1.730,
+        cookedFirst: 13.870,
+        excelSecondFactorPct: 18.96,
+        excelSecondFactorMode: "loss",
+        salesV: 2.350, salesS: 3.970, salesD: 7.370,
+        invRaw: 6.150,
+        invCooked: 2.59135,
+        costPerKg: 0
+      },
+      {
+        id: "short_ribs",
+        name: "SHORT RIBS - COSTILLA DE RES",
+        shortName: "Short Ribs (Res)",
+        category: "AHUMADO",
+        supplier: "Res / Carnicería",
+        purchasedRaw: 25.250,
+        cleanRaw: 22.900,
+        mermaPct: 37.12,
+        smokerIn: 22.900,
+        cookedTotal: 14.400,
+        retazos: 4.270,
+        cookedFirst: 10.130,
+        excelSecondFactorPct: 37.12,
+        excelSecondFactorMode: "loss",
+        salesV: 1.530, salesS: 3.030, salesD: 3.920,
+        invRaw: 8.250,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "porkbelly",
+        name: "PORKBELLY A GRANEL",
+        shortName: "Porkbelly",
+        category: "AHUMADO",
+        supplier: "Cerdo / Carnicería",
+        purchasedRaw: 32.400,
+        cleanRaw: 19.600,
+        mermaPct: 35.00,
+        smokerIn: 19.600,
+        cookedTotal: 12.740,
+        retazos: 1.960,
+        cookedFirst: 10.780,
+        excelSecondFactorPct: 35.00,
+        excelSecondFactorMode: "loss",
+        salesV: 2.460, salesS: 3.880, salesD: 6.430,
+        invRaw: 0,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "pastrami",
+        name: "Pecho de Res (Pastrami)",
+        shortName: "Pastrami (Pecho)",
+        category: "AHUMADO",
+        supplier: "Res / Carnicería",
+        purchasedRaw: 0,
+        cleanRaw: 10.450,
+        mermaPct: 32.54,
+        smokerIn: 10.450,
+        cookedTotal: 7.050,
+        retazos: 1.400,
+        cookedFirst: 5.650,
+        excelSecondFactorPct: 54.07,
+        excelSecondFactorMode: "loss",
+        salesV: 0.470, salesS: 1.240, salesD: 1.260,
+        invRaw: 0,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "rodilla",
+        name: "RODILLA DE CERDO AHUMADAS",
+        shortName: "Rodilla de Cerdo",
+        category: "AHUMADO",
+        supplier: "Cerdo / Carnicería",
+        purchasedRaw: 0,
+        cleanRaw: 3.400,
+        mermaPct: 0,
+        smokerIn: 3.400,
+        cookedTotal: 3.400,
+        retazos: 0,
+        cookedFirst: 3.400,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 1.800, salesS: 0, salesD: 0,
+        invRaw: 5.864,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "prime_ribs",
+        name: "PRIME RIBS",
+        shortName: "Prime Ribs",
+        category: "PARRILLA",
+        supplier: "Cortes Premium Res",
+        purchasedRaw: 0,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 0, salesS: 0.910, salesD: 3.470,
+        invRaw: 58.850,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "asado_tira",
+        name: "ASADO DE TIRA 3H CAB CHOISE",
+        shortName: "Asado de Tira CAB",
+        category: "PARRILLA",
+        supplier: "Cortes Premium Res",
+        purchasedRaw: 0,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 0, salesS: 0, salesD: 0,
+        invRaw: 0.450,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "flat_iron",
+        name: "FLAT IRON",
+        shortName: "Flat-Iron",
+        category: "PARRILLA",
+        supplier: "Cortes Premium Res",
+        purchasedRaw: 0,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 0, salesS: 0, salesD: 0,
+        invRaw: 5.650,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "lomito",
+        name: "LOMITO",
+        shortName: "Lomito",
+        category: "PARRILLA",
+        supplier: "Cortes Premium Res",
+        purchasedRaw: 0,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 0, salesS: 0, salesD: 0,
+        invRaw: 2.690,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "pollo",
+        name: "POLLO CHURRASCO",
+        shortName: "Churrasco de Pollo",
+        category: "AVE",
+        supplier: "Avícola / Pollo",
+        purchasedRaw: 8.020,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 2.000, salesS: 2.000, salesD: 2.000,
+        invRaw: 8.200,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "cordero",
+        name: "RACK DE CORDERO",
+        shortName: "Costilla de Cordero",
+        category: "PARRILLA",
+        supplier: "Cortes Premium",
+        purchasedRaw: 0,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 0, salesS: 0, salesD: 0,
+        invRaw: 0,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "ribeye",
+        name: "RIBEYE - CHULETON",
+        shortName: "Ribeye",
+        category: "PARRILLA",
+        supplier: "Cortes Premium Res",
+        purchasedRaw: 14.840,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 1.660, salesS: 2.648, salesD: 5.940,
+        invRaw: 7.700,
+        invCooked: 0,
+        costPerKg: 0
+      },
+      {
+        id: "tbone",
+        name: "TBONE - PORTERHOUSE",
+        shortName: "Porter T-Bone 961",
+        category: "PARRILLA",
+        supplier: "Cortes Premium Res",
+        purchasedRaw: 0,
+        cleanRaw: 0,
+        mermaPct: 0,
+        smokerIn: 0,
+        cookedTotal: 0,
+        retazos: 0,
+        cookedFirst: 0,
+        excelSecondFactorPct: 0,
+        excelSecondFactorMode: "none",
+        salesV: 0, salesS: 0.800, salesD: 0.900,
+        invRaw: 3.950,
+        invCooked: 0,
+        costPerKg: 0
+      }
+    ];
+
+    /**
+     * =========================================================================
+     * 2. ESTADO DE LA APLICACIÓN Y MOTOR DE CÁLCULO
+     * =========================================================================
+     */
+    let items = [];
+    let state = {
+      activeTab: "pedido",       // 'pedido' | 'mermas' | 'matriz'
+      displayUnit: "kg",         // 'kg' | 'g'
+      scenarioPct: 0,            // -15, 0, 15, 25, 40
+      statusFilter: "ALL",       // 'ALL' | 'BUY' | 'WARN' | 'OK'
+      demandSource: "Base: Excel Sem 16.11–22.11",
+      weekLabel: "Semana 16.11 al 22.11 • 14 Proteínas",
+      lastUpload: null
+    };
+
+    let charts = { balance: null, smoker: null };
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+            items = parsed.items;
+            if (parsed.demandSource) state.demandSource = parsed.demandSource;
+            if (parsed.weekLabel) state.weekLabel = parsed.weekLabel;
+            if (parsed.lastUpload) state.lastUpload = parsed.lastUpload;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Cargando base inicial de compras.", e);
+      }
+      items = JSON.parse(JSON.stringify(INITIAL_ITEMS));
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          items,
+          demandSource: state.demandSource,
+          weekLabel: state.weekLabel,
+          lastUpload: state.lastUpload
+        }));
+      } catch (e) {}
+    }
+
+    /**
+     * Calcula todas las métricas de un corte según el escenario (%)
+     */
+    function computeMetrics(item) {
+      const mult = 1 + (state.scenarioPct / 100);
+      const baseSales = (item.salesV || 0) + (item.salesS || 0) + (item.salesD || 0);
+      const projectedSales = baseSales * mult;
+
+      // 1. Carne Limpia Faltante = Ventas / (1 - Merma%)
+      const mermaDec = Math.min(0.85, Math.max(0, (item.mermaPct || 0) / 100));
+      const cleanNeeded = mermaDec > 0 ? (projectedSales / (1 - mermaDec)) : projectedSales;
+
+      // 2. Carne Bruta con Merma incluida (fiel a tu hoja para cortes ahumados)
+      let grossNeeded = cleanNeeded;
+      if (item.excelSecondFactorMode === "loss" && item.excelSecondFactorPct > 0) {
+        const f2 = Math.min(0.85, item.excelSecondFactorPct / 100);
+        grossNeeded = cleanNeeded / (1 - f2);
+      }
+
+      // 3. Inventario total disponible (Crudo + Cocido)
+      const invRaw = Number(item.invRaw) || 0;
+      const invCooked = Number(item.invCooked) || 0;
+      const effectiveStock = invRaw + invCooked;
+
+      // 4. Carne Neta a Comprar
+      const netToBuy = Math.max(0, grossNeeded - effectiveStock);
+
+      // Cobertura (%)
+      let coveragePct = 100;
+      if (grossNeeded > 0) {
+        coveragePct = Math.min(150, (effectiveStock / grossNeeded) * 100);
+      }
+
+      // Semáforo
+      let status = "OK"; // Verde: cubierto
+      if (netToBuy > 0.05) {
+        status = "BUY"; // Rojo: comprar ya
+      } else if (grossNeeded > 0 && coveragePct < 115) {
+        status = "WARN"; // Amarillo: cobertura ajustada (<115%)
+      }
+
+      // Rendimiento real del ahumador (1ª Calidad / Entrada Ahumador)
+      const realYieldPct = item.smokerIn > 0 ? (item.cookedFirst / item.smokerIn) * 100 : 0;
+      const retazosPct = item.smokerIn > 0 ? (item.retazos / item.smokerIn) * 100 : 0;
+
+      // Presupuesto estimado ($)
+      const estCost = netToBuy * (Number(item.costPerKg) || 0);
+
+      return {
+        ...item,
+        baseSales,
+        projectedSales,
+        cleanNeeded,
+        grossNeeded,
+        effectiveStock,
+        netToBuy,
+        coveragePct,
+        status,
+        realYieldPct,
+        retazosPct,
+        estCost
+      };
+    }
+
+    /**
+     * =========================================================================
+     * 3. UTILIDADES DE FORMATO Y NOTIFICACIONES
+     * =========================================================================
+     */
+    function fmtWeight(kgVal, forceDecimals = null) {
+      const val = Number(kgVal) || 0;
+      if (state.displayUnit === "g") {
+        return (val * 1000).toLocaleString("es-VE", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      }
+      const dec = forceDecimals !== null ? forceDecimals : 2;
+      return val.toLocaleString("es-VE", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    }
+
+    function fmtMoney(val) {
+      return "$" + Number(val || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+
+    function unitSuffix() {
+      return state.displayUnit === "g" ? "g" : "Kg";
+    }
+
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      const style = type === "error"
+        ? "bg-smoke-red text-white border-red-400"
+        : "bg-charcoal-900 dark:bg-charcoal-800 text-white border-ember-500";
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold transition-all duration-300 ${style}`;
+      toast.innerHTML = `<span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-white' : 'bg-ember-400'}"></span><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    /**
+     * =========================================================================
+     * 4. RENDERIZADO GENERAL (KPIS, TARJETAS, GRÁFICOS Y MATRIZ)
+     * =========================================================================
+     */
+    function renderAll() {
+      const computed = items.map(computeMetrics);
+
+      // Actualizar etiquetas de unidad (Kg / g) y encabezado de semana
+      document.querySelectorAll(".unit-label").forEach(el => { el.textContent = unitSuffix(); });
+      const weekEl = document.getElementById("headerWeekLabel");
+      if (weekEl) weekEl.textContent = state.weekLabel;
+      const badgeEl = document.getElementById("demandSourceBadge");
+      if (badgeEl) {
+        const dotColor = state.lastUpload ? "bg-emerald-500 animate-pulse" : "bg-amber-500";
+        badgeEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span><span>${state.demandSource}</span>`;
+      }
+
+      // Mostrar banner de confirmación si el usuario cargó un Excel recientemente
+      const banner = document.getElementById("excelUploadBanner");
+      const bannerTxt = document.getElementById("excelUploadBannerText");
+      if (banner && bannerTxt) {
+        if (state.lastUpload) {
+          const u = state.lastUpload;
+          banner.classList.remove("hidden");
+          bannerTxt.innerHTML = `
+            <strong>✓ Excel leído en vivo:</strong> ${u.fileName} <span class="opacity-75">(Hoja "${u.sheetName}" • ${u.timeStr} • ${u.unitInfo})</span><br>
+            <span class="font-mono text-[11px]">${u.count} cortes cargados • Ventas: <strong>${u.totalSalesKg.toFixed(2)} Kg</strong> • Inv. Crudo: <strong>${u.totalInvRawKg.toFixed(2)} Kg</strong> • Inv. Cocido: <strong>${u.totalInvCookedKg.toFixed(2)} Kg</strong> • Neto a Comprar: <strong>${u.totalNetBuyKg.toFixed(2)} Kg</strong></span>
+          `;
+        } else {
+          banner.classList.add("hidden");
+        }
+      }
+
+      renderKPIs(computed);
+      renderCards(computed);
+      renderMatrixTable(computed);
+
+      if (state.activeTab === "mermas") {
+        renderCharts(computed);
+        renderRetazos(computed);
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function renderKPIs(computed) {
+      const totalNetBuy = computed.reduce((a, b) => a + b.netToBuy, 0);
+      const totalSales = computed.reduce((a, b) => a + b.projectedSales, 0);
+      const totalGross = computed.reduce((a, b) => a + b.grossNeeded, 0);
+      const totalInvRaw = computed.reduce((a, b) => a + (Number(b.invRaw) || 0), 0);
+      const totalInvCooked = computed.reduce((a, b) => a + (Number(b.invCooked) || 0), 0);
+      const totalBudget = computed.reduce((a, b) => a + b.estCost, 0);
+
+      const buyList = computed.filter(c => c.status === "BUY");
+      const warnList = computed.filter(c => c.status === "WARN");
+      const okList = computed.filter(c => c.status === "OK");
+
+      // Rendimiento global del ahumador (solo cortes con entrada > 0 y merma > 0)
+      const smoked = computed.filter(c => c.smokerIn > 0 && c.mermaPct > 0);
+      const totSmokerIn = smoked.reduce((a, b) => a + b.smokerIn, 0);
+      const totFirst = smoked.reduce((a, b) => a + b.cookedFirst, 0);
+      const totCooked = smoked.reduce((a, b) => a + b.cookedTotal, 0);
+      const totRetazos = computed.reduce((a, b) => a + (b.retazos || 0), 0);
+      const globalYieldPct = totSmokerIn > 0 ? (totFirst / totSmokerIn) * 100 : 0;
+      const globalMermaPct = totSmokerIn > 0 ? ((totSmokerIn - totCooked) / totSmokerIn) * 100 : 0;
+
+      document.getElementById("kpiNetBuy").textContent = fmtWeight(totalNetBuy);
+      document.getElementById("kpiCutsToBuy").textContent = `${buyList.length} cortes a pedir`;
+      document.getElementById("kpiBudgetEst").textContent = totalBudget > 0 ? `${fmtMoney(totalBudget)} est.` : "Agrega $/Kg";
+
+      document.getElementById("kpiTotalSales").textContent = fmtWeight(totalSales);
+      document.getElementById("kpiGrossNeed").textContent = `Bruta: ${fmtWeight(totalGross, 1)} ${unitSuffix()}`;
+      document.getElementById("kpiScenarioBadge").textContent = state.scenarioPct === 0 ? "Base 0%" : `${state.scenarioPct > 0 ? "+" : ""}${state.scenarioPct}%`;
+
+      document.getElementById("kpiInvRaw").textContent = fmtWeight(totalInvRaw);
+      document.getElementById("kpiInvCooked").textContent = `Cocido: ${fmtWeight(totalInvCooked, 1)} ${unitSuffix()}`;
+      document.getElementById("kpiCoveredCount").textContent = `${okList.length} cubiertos`;
+
+      document.getElementById("kpiSmokerYield").textContent = `${globalYieldPct.toFixed(1)}%`;
+      document.getElementById("kpiRetazosTotal").textContent = `Retazos: ${fmtWeight(totRetazos)} ${unitSuffix()}`;
+      document.getElementById("kpiMermaAvg").textContent = `Merma ${globalMermaPct.toFixed(1)}%`;
+
+      // Contadores de píldoras de estado
+      document.getElementById("cntAll").textContent = computed.length;
+      document.getElementById("cntBuy").textContent = buyList.length;
+      document.getElementById("cntWarn").textContent = warnList.length;
+      document.getElementById("cntOk").textContent = okList.length;
+    }
+
+    function renderCards(computed) {
+      const search = (document.getElementById("searchCutInput")?.value || "").toLowerCase().trim();
+
+      // Ordenar: primero los que requieren compra (mayor a menor), luego alertas, luego cubiertos
+      const statusWeight = { BUY: 0, WARN: 1, OK: 2 };
+      const filtered = computed
+        .filter(c => state.statusFilter === "ALL" || c.status === state.statusFilter)
+        .filter(c => c.name.toLowerCase().includes(search) || c.shortName.toLowerCase().includes(search))
+        .sort((a, b) => {
+          if (statusWeight[a.status] !== statusWeight[b.status]) return statusWeight[a.status] - statusWeight[b.status];
+          if (b.netToBuy !== a.netToBuy) return b.netToBuy - a.netToBuy;
+          return b.projectedSales - a.projectedSales;
+        });
+
+      const grid = document.getElementById("purchaseCardsGrid");
+      if (filtered.length === 0) {
+        grid.innerHTML = items.length === 0
+          ? `
+            <div class="col-span-full rounded-2xl bg-white dark:bg-charcoal-850 border border-dashed border-ember-500/50 p-8 text-center space-y-3">
+              <p class="text-sm font-bold text-stone-800 dark:text-stone-100">Tablero en cero — listo para probar tu archivo</p>
+              <p class="text-xs text-stone-500 dark:text-stone-400">Sube tu archivo <strong>Planific compras IA.xlsx</strong> para ver cómo se cargan los cortes en vivo.</p>
+              <button onclick="triggerExcelUpload()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-ember-500 hover:bg-ember-400 text-white text-xs font-bold shadow transition">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                <span>Subir Excel (.xlsx) ahora</span>
+              </button>
+            </div>
+          `
+          : `
+            <div class="col-span-full rounded-2xl bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700 p-8 text-center text-sm text-stone-500">
+              No hay cortes que coincidan con este filtro.
+            </div>
+          `;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(c => {
+        const u = unitSuffix();
+        const badgeHtml = c.status === "BUY"
+          ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-smoke-red/15 text-smoke-red border border-smoke-red/30">🔴 Comprar</span>`
+          : c.status === "WARN"
+            ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">🟡 Revisar</span>`
+            : `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">🟢 Cubierto</span>`;
+
+        const borderCls = c.status === "BUY"
+          ? "border-smoke-red/40 dark:border-smoke-red/40"
+          : c.status === "WARN"
+            ? "border-amber-500/40"
+            : "border-stone-200 dark:border-charcoal-700/80";
+
+        const barColor = c.status === "BUY" ? "bg-smoke-red" : (c.status === "WARN" ? "bg-amber-500" : "bg-emerald-500");
+        const barWidth = Math.min(100, Math.max(4, c.coveragePct));
+
+        const overstockNote = (c.invRaw > 25 && c.projectedSales < 10)
+          ? `<div class="mt-2 px-2.5 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-600 dark:text-sky-400 font-medium">❄️ Stock alto en cava (${fmtWeight(c.invRaw)} ${u}) — no comprar</div>`
+          : "";
+
+        return `
+          <article class="rounded-2xl bg-white dark:bg-charcoal-850 border ${borderCls} p-4 shadow-sm flex flex-col justify-between">
+            <div>
+              <!-- Encabezado tarjeta -->
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400">${c.category} • ${c.supplier}</span>
+                  <h3 class="font-display text-lg font-bold uppercase text-stone-900 dark:text-white leading-tight truncate mt-0.5">${c.shortName}</h3>
+                  <p class="text-[11px] text-stone-400 truncate">${c.name}</p>
+                </div>
+                <div class="shrink-0">${badgeHtml}</div>
+              </div>
+
+              <!-- Número Principal: Carne Neta a Comprar -->
+              <div class="mt-3.5 p-3 rounded-xl bg-stone-50 dark:bg-charcoal-900/90 border border-stone-200/70 dark:border-charcoal-800 flex items-center justify-between">
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-stone-400">Carne Neta a Comprar</p>
+                  <div class="flex items-baseline gap-1.5 mt-0.5">
+                    <span class="font-display text-2xl sm:text-3xl font-bold ${c.netToBuy > 0 ? 'text-ember-500' : 'text-emerald-500'}">${fmtWeight(c.netToBuy)}</span>
+                    <span class="text-xs font-bold text-stone-400">${u}</span>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-stone-400">Estimado</p>
+                  <p class="text-sm font-bold text-stone-800 dark:text-stone-200 mt-0.5">${c.estCost > 0 ? fmtMoney(c.estCost) : '--'}</p>
+                  <p class="text-[10px] text-stone-400">${c.mermaPct > 0 ? `Merma ${c.mermaPct.toFixed(1)}%` : 'Corte directo'}</p>
+                </div>
+              </div>
+
+              <!-- Barra de cobertura visual -->
+              <div class="mt-3">
+                <div class="flex items-center justify-between text-[11px] mb-1">
+                  <span class="text-stone-500 dark:text-stone-400">Cobertura de stock vs. necesidad</span>
+                  <span class="font-bold text-stone-700 dark:text-stone-200">${c.grossNeeded > 0 ? Math.min(999, Math.round(c.coveragePct)) + '%' : 'Sin demanda'}</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-stone-200 dark:bg-charcoal-800 overflow-hidden">
+                  <div class="h-full rounded-full ${barColor}" style="width: ${barWidth}%"></div>
+                </div>
+              </div>
+
+              <!-- Mini-tabla 4 métricas operativas -->
+              <div class="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                <div class="px-2.5 py-1.5 rounded-lg bg-stone-100/70 dark:bg-charcoal-900/60 flex justify-between">
+                  <span class="text-stone-500">Venta FDS:</span>
+                  <strong class="font-mono">${fmtWeight(c.projectedSales)} ${u}</strong>
+                </div>
+                <div class="px-2.5 py-1.5 rounded-lg bg-stone-100/70 dark:bg-charcoal-900/60 flex justify-between">
+                  <span class="text-stone-500">Bruta Nec.:</span>
+                  <strong class="font-mono">${fmtWeight(c.grossNeeded)} ${u}</strong>
+                </div>
+                <div class="px-2.5 py-1.5 rounded-lg bg-stone-100/70 dark:bg-charcoal-900/60 flex justify-between">
+                  <span class="text-stone-500">Inv. Crudo:</span>
+                  <strong class="font-mono text-sky-600 dark:text-sky-400">${fmtWeight(c.invRaw)} ${u}</strong>
+                </div>
+                <div class="px-2.5 py-1.5 rounded-lg bg-stone-100/70 dark:bg-charcoal-900/60 flex justify-between">
+                  <span class="text-stone-500">Inv. Cocido:</span>
+                  <strong class="font-mono">${fmtWeight(c.invCooked)} ${u}</strong>
+                </div>
+              </div>
+
+              ${overstockNote}
+            </div>
+
+            <!-- Pie de tarjeta: edición rápida de Stock Crudo y Precio $/Kg -->
+            <div class="mt-3.5 pt-3 border-t border-stone-100 dark:border-charcoal-800 grid grid-cols-2 gap-2">
+              <label class="block">
+                <span class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Ajustar Crudo (Kg)</span>
+                <input type="number" step="0.1" min="0" value="${Number(c.invRaw).toFixed(2)}" onchange="updateItemField('${c.id}', 'invRaw', this.value)" class="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 focus:outline-none focus:border-ember-500" />
+              </label>
+              <label class="block">
+                <span class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Precio $/Kg</span>
+                <input type="number" step="0.5" min="0" value="${c.costPerKg || ''}" placeholder="0.00" onchange="updateItemField('${c.id}', 'costPerKg', this.value)" class="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 focus:outline-none focus:border-emerald-500" />
+              </label>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderCharts(computed) {
+      const isDark = document.documentElement.classList.contains("dark");
+      const textColor = isDark ? "#A8A29E" : "#57534E";
+      const strongColor = isDark ? "#F5F5F4" : "#1C1917";
+      const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+      const factor = state.displayUnit === "g" ? 1000 : 1;
+      const u = unitSuffix();
+
+      // 1. Gráfico Balance de Compras (Cortes con demanda > 0)
+      const activeDemand = computed
+        .filter(c => c.grossNeeded > 0)
+        .sort((a, b) => b.grossNeeded - a.grossNeeded);
+
+      const ctxBal = document.getElementById("chartBalance").getContext("2d");
+      if (charts.balance) charts.balance.destroy();
+      charts.balance = new Chart(ctxBal, {
+        type: "bar",
+        data: {
+          labels: activeDemand.map(c => c.shortName),
+          datasets: [
+            {
+              label: `Bruta Necesaria (${u})`,
+              data: activeDemand.map(c => Number((c.grossNeeded * factor).toFixed(2))),
+              backgroundColor: "rgba(245, 158, 11, 0.85)",
+              borderRadius: 4
+            },
+            {
+              label: `Stock Cierre Crudo (${u})`,
+              data: activeDemand.map(c => Number((Math.min(c.invRaw, c.grossNeeded * 1.5) * factor).toFixed(2))),
+              backgroundColor: "rgba(14, 165, 233, 0.75)",
+              borderRadius: 4
+            },
+            {
+              label: `Neto a Comprar (${u})`,
+              data: activeDemand.map(c => Number((c.netToBuy * factor).toFixed(2))),
+              backgroundColor: "#DC2626",
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { color: textColor, boxWidth: 10, font: { size: 11, weight: "600" } } },
+            tooltip: { backgroundColor: "#18181C" }
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+            y: { grid: { display: false }, ticks: { color: strongColor, font: { size: 11, weight: "600" } } }
+          }
+        }
+      });
+
+      // 2. Gráfico Descomposición del Ahumador (%)
+      const smoked = computed.filter(c => c.smokerIn > 0 && c.mermaPct > 0);
+      const ctxSmk = document.getElementById("chartSmokerYield").getContext("2d");
+      if (charts.smoker) charts.smoker.destroy();
+      charts.smoker = new Chart(ctxSmk, {
+        type: "bar",
+        data: {
+          labels: smoked.map(c => c.shortName),
+          datasets: [
+            {
+              label: "1ª Calidad (%)",
+              data: smoked.map(c => Number(c.realYieldPct.toFixed(1))),
+              backgroundColor: "#10B981",
+              borderRadius: 4
+            },
+            {
+              label: "Retazos / Puntas (%)",
+              data: smoked.map(c => Number(c.retazosPct.toFixed(1))),
+              backgroundColor: "#F59E0B",
+              borderRadius: 4
+            },
+            {
+              label: "Merma Cocción (%)",
+              data: smoked.map(c => Number(c.mermaPct.toFixed(1))),
+              backgroundColor: "#DC2626",
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { color: textColor, boxWidth: 10, font: { size: 11, weight: "600" } } },
+            tooltip: {
+              backgroundColor: "#18181C",
+              callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}%` }
+            }
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { color: strongColor, font: { size: 10, weight: "600" } } },
+            y: { stacked: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: v => v + "%" } }
+          }
+        }
+      });
+    }
+
+    function renderRetazos(computed) {
+      const u = unitSuffix();
+      const withRetazos = computed.filter(c => c.retazos > 0).sort((a, b) => b.retazos - a.retazos);
+      const totalRetazos = withRetazos.reduce((a, b) => a + b.retazos, 0);
+      document.getElementById("retazosBadge").textContent = `Total Aprovechable: ${fmtWeight(totalRetazos)} ${u}`;
+
+      document.getElementById("retazosGrid").innerHTML = withRetazos.map(c => `
+        <div class="rounded-xl p-3.5 bg-stone-50 dark:bg-charcoal-900 border border-stone-200 dark:border-charcoal-800">
+          <p class="text-[11px] font-bold uppercase text-stone-500 dark:text-stone-400 truncate">${c.shortName}</p>
+          <div class="mt-1.5 flex items-baseline gap-1">
+            <span class="font-display text-2xl font-bold text-amber-500">${fmtWeight(c.retazos)}</span>
+            <span class="text-xs font-bold text-stone-400">${u}</span>
+          </div>
+          <p class="text-[11px] text-stone-500 mt-1">${c.retazosPct.toFixed(1)}% de la entrada al ahumador</p>
+        </div>
+      `).join("");
+    }
+
+    function renderMatrixTable(computed) {
+      const u = unitSuffix();
+      const tbody = document.getElementById("matrixTableBody");
+      const tfoot = document.getElementById("matrixTableFoot");
+
+      tbody.innerHTML = computed.map(c => `
+        <tr class="hover:bg-ember-500/5">
+          <td class="py-2.5 px-3 sticky left-0 bg-white dark:bg-charcoal-850 font-semibold text-stone-800 dark:text-stone-100 border-r border-stone-100 dark:border-charcoal-800">
+            <div>${c.shortName}</div>
+            <div class="text-[10px] text-stone-400 font-normal truncate max-w-[165px]">${c.name}</div>
+          </td>
+          <td class="py-2.5 px-2.5 text-right font-mono">${c.smokerIn > 0 ? fmtWeight(c.smokerIn) : '-'}</td>
+          <td class="py-2.5 px-2.5 text-right font-mono ${c.mermaPct > 30 ? 'text-amber-500 font-bold' : ''}">${c.mermaPct.toFixed(1)}%</td>
+          <td class="py-2.5 px-2.5 text-right font-mono">${c.cookedFirst > 0 ? fmtWeight(c.cookedFirst) : '-'}</td>
+          <td class="py-2.5 px-2.5 text-right font-mono text-amber-500">${c.retazos > 0 ? fmtWeight(c.retazos) : '-'}</td>
+          <td class="py-2.5 px-2.5 text-right font-mono font-semibold">${fmtWeight(c.projectedSales)}</td>
+          <td class="py-2.5 px-2.5 text-right font-mono">${fmtWeight(c.grossNeeded)}</td>
+          <td class="py-2 px-2 text-right">
+            <input type="number" step="0.1" min="0" value="${Number(c.invRaw).toFixed(2)}" onchange="updateItemField('${c.id}', 'invRaw', this.value)" class="w-20 text-right px-2 py-1 rounded-lg font-mono bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 focus:outline-none focus:border-ember-500" />
+          </td>
+          <td class="py-2 px-2 text-right">
+            <input type="number" step="0.1" min="0" value="${Number(c.invCooked).toFixed(2)}" onchange="updateItemField('${c.id}', 'invCooked', this.value)" class="w-20 text-right px-2 py-1 rounded-lg font-mono bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 focus:outline-none focus:border-ember-500" />
+          </td>
+          <td class="py-2.5 px-2.5 text-right font-mono font-bold ${c.netToBuy > 0 ? 'text-ember-500' : 'text-emerald-500'}">${fmtWeight(c.netToBuy)}</td>
+          <td class="py-2 px-2 text-right">
+            <input type="number" step="0.5" min="0" value="${c.costPerKg || ''}" placeholder="0" onchange="updateItemField('${c.id}', 'costPerKg', this.value)" class="w-16 text-right px-2 py-1 rounded-lg font-mono bg-stone-100 dark:bg-charcoal-800 border border-stone-200 dark:border-charcoal-700 focus:outline-none focus:border-emerald-500" />
+          </td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold text-emerald-500">${c.estCost > 0 ? fmtMoney(c.estCost) : '-'}</td>
+        </tr>
+      `).join("");
+
+      const sumIn = computed.reduce((a, b) => a + b.smokerIn, 0);
+      const sumFirst = computed.reduce((a, b) => a + b.cookedFirst, 0);
+      const sumRet = computed.reduce((a, b) => a + b.retazos, 0);
+      const sumSales = computed.reduce((a, b) => a + b.projectedSales, 0);
+      const sumGross = computed.reduce((a, b) => a + b.grossNeeded, 0);
+      const sumRaw = computed.reduce((a, b) => a + (Number(b.invRaw) || 0), 0);
+      const sumCook = computed.reduce((a, b) => a + (Number(b.invCooked) || 0), 0);
+      const sumNet = computed.reduce((a, b) => a + b.netToBuy, 0);
+      const sumCost = computed.reduce((a, b) => a + b.estCost, 0);
+
+      tfoot.innerHTML = `
+        <tr>
+          <td class="py-3 px-3 sticky left-0 bg-stone-100 dark:bg-charcoal-900 uppercase">Total (${computed.length} cortes • ${u})</td>
+          <td class="py-3 px-2.5 text-right font-mono">${fmtWeight(sumIn)}</td>
+          <td class="py-3 px-2.5 text-right">--</td>
+          <td class="py-3 px-2.5 text-right font-mono">${fmtWeight(sumFirst)}</td>
+          <td class="py-3 px-2.5 text-right font-mono text-amber-500">${fmtWeight(sumRet)}</td>
+          <td class="py-3 px-2.5 text-right font-mono">${fmtWeight(sumSales)}</td>
+          <td class="py-3 px-2.5 text-right font-mono">${fmtWeight(sumGross)}</td>
+          <td class="py-3 px-2.5 text-right font-mono">${fmtWeight(sumRaw)}</td>
+          <td class="py-3 px-2.5 text-right font-mono">${fmtWeight(sumCook)}</td>
+          <td class="py-3 px-2.5 text-right font-mono text-ember-500 text-sm">${fmtWeight(sumNet)} ${u}</td>
+          <td class="py-3 px-2.5 text-right">--</td>
+          <td class="py-3 px-3 text-right font-mono text-emerald-500 text-sm">${fmtMoney(sumCost)}</td>
+        </tr>
+      `;
+    }
+
+    /**
+     * =========================================================================
+     * 5. INTERACCIONES (TABS, FILTROS, EDICIÓN, WHATSAPP Y CSV)
+     * =========================================================================
+     */
+    function switchTab(tab) {
+      state.activeTab = tab;
+      ["pedido", "mermas", "matriz"].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== tab);
+      });
+
+      document.querySelectorAll(".nav-tab-desktop").forEach(btn => {
+        btn.className = btn.dataset.tab === tab
+          ? "nav-tab-desktop inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide bg-gradient-to-r from-ember-500 to-smoke-red text-white shadow-sm"
+          : "nav-tab-desktop inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white";
+      });
+
+      document.querySelectorAll(".nav-tab-mobile").forEach(btn => {
+        btn.className = btn.dataset.tab === tab
+          ? "nav-tab-mobile flex flex-col items-center justify-center py-1.5 rounded-xl text-ember-500 bg-ember-500/10"
+          : "nav-tab-mobile flex flex-col items-center justify-center py-1.5 rounded-xl text-stone-500 dark:text-stone-400";
+      });
+
+      renderAll();
+    }
+
+    function setDisplayUnit(unit) {
+      state.displayUnit = unit;
+      document.getElementById("btnUnitKg").className = unit === "kg"
+        ? "px-2.5 py-1.5 rounded-lg bg-ember-500 text-white shadow-sm"
+        : "px-2.5 py-1.5 rounded-lg text-stone-600 dark:text-stone-300";
+      document.getElementById("btnUnitG").className = unit === "g"
+        ? "px-2.5 py-1.5 rounded-lg bg-ember-500 text-white shadow-sm"
+        : "px-2.5 py-1.5 rounded-lg text-stone-600 dark:text-stone-300";
+      renderAll();
+    }
+
+    function setScenario(pct) {
+      state.scenarioPct = pct;
+      document.querySelectorAll(".scenario-btn").forEach(btn => {
+        const active = Number(btn.dataset.scenario) === pct;
+        btn.className = active
+          ? "scenario-btn shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-ember-500 text-white shadow-sm"
+          : "scenario-btn shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-stone-100 dark:bg-charcoal-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-charcoal-700";
+      });
+      renderAll();
+    }
+
+    function setStatusFilter(st) {
+      state.statusFilter = st;
+      document.querySelectorAll(".status-pill").forEach(btn => {
+        const active = btn.dataset.status === st;
+        if (active) {
+          btn.className = "status-pill shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold bg-ember-500 text-white shadow-sm";
+        } else {
+          const colorTxt = btn.dataset.status === "BUY" ? "text-smoke-red" : btn.dataset.status === "WARN" ? "text-amber-500" : btn.dataset.status === "OK" ? "text-emerald-500" : "text-stone-600 dark:text-stone-300";
+          btn.className = `status-pill shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-charcoal-850 border border-stone-200 dark:border-charcoal-700 ${colorTxt}`;
+        }
+      });
+      renderAll();
+    }
+
+    function updateItemField(id, field, rawVal) {
+      const target = items.find(i => i.id === id);
+      if (!target) return;
+      const num = parseFloat(String(rawVal).replace(",", "."));
+      target[field] = isNaN(num) || num < 0 ? 0 : num;
+      saveState();
+      renderAll();
+    }
+
+    function resetEdits() {
+      items = JSON.parse(JSON.stringify(INITIAL_ITEMS));
+      state.demandSource = "Base: Excel Sem 16.11–22.11";
+      state.weekLabel = "Semana 16.11 al 22.11 • 14 Proteínas";
+      state.scenarioPct = 0;
+      state.lastUpload = null;
+      localStorage.removeItem(STORAGE_KEY);
+      setScenario(0);
+      showToast("Datos restaurados a tu copia de Excel (16.11 al 22.11)");
+    }
+
+    function dismissUploadBanner() {
+      state.lastUpload = null;
+      saveState();
+      renderAll();
+    }
+
+    /**
+     * =========================================================================
+     * 5.5 IMPORTADOR DIRECTO DE EXCEL (Planific compras IA.xlsx / .xls / .csv)
+     * =========================================================================
+     */
+    function triggerExcelUpload() {
+      const input = document.getElementById("excelFileInput");
+      if (!input) return;
+      input.value = "";
+      input.click();
+    }
+
+    // Parsea números de Excel (nativos o con formato español 25.000,00 / inglés 25,000.00)
+    function parseExcelNumber(val) {
+      if (typeof val === "number") return isNaN(val) ? 0 : val;
+      if (val === undefined || val === null) return 0;
+      let str = String(val).replace(/kg|gr|g|%|\$|bs\.?s?/gi, "").replace(/\s+/g, "").trim();
+      if (!str || str === "-" || str === "--") return 0;
+
+      if (str.includes(",") && str.includes(".")) {
+        if (str.lastIndexOf(",") > str.lastIndexOf(".")) {
+          str = str.replace(/\./g, "").replace(",", ".");
+        } else {
+          str = str.replace(/,/g, "");
+        }
+      } else if (str.includes(",")) {
+        str = str.replace(",", ".");
+      }
+      const n = parseFloat(str);
+      return isNaN(n) ? 0 : n;
+    }
+
+    // Parsea porcentajes de Excel (ej. 0.326 -> 32.6, "32,60%" -> 32.6, 1 -> 100)
+    function parseExcelPercent(val) {
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === "string" && val.includes("%")) {
+        return parseExcelNumber(val);
+      }
+      const n = parseExcelNumber(val);
+      if (n > 0 && n <= 1.05) return Number((n * 100).toFixed(2));
+      return Number(n.toFixed(2));
+    }
+
+    // Asocia cada fila del Excel con su corte en INITIAL_ITEMS (conservando metadatos y precios)
+    function findTemplateItemForExcelRow(rawName) {
+      const k = normKey(rawName);
+      if (!k) return null;
+
+      // 1. Coincidencia exacta contra nombre completo o corto
+      const exact = INITIAL_ITEMS.find(it => normKey(it.name) === k || normKey(it.shortName) === k);
+      if (exact) return exact;
+
+      // 2. Coincidencia por palabras clave de tu hoja de planificación
+      if (k.includes("pastrami")) return INITIAL_ITEMS.find(i => i.id === "pastrami");
+      if (k.includes("pechoderes") || k.includes("brisket")) return INITIAL_ITEMS.find(i => i.id === "brisket");
+      if (k.includes("sparerib") || k.includes("costillascarnicero")) return INITIAL_ITEMS.find(i => i.id === "spare_ribs");
+      if (k.includes("shortrib") || k.includes("costilladeres")) return INITIAL_ITEMS.find(i => i.id === "short_ribs");
+      if (k.includes("porkbelly")) return INITIAL_ITEMS.find(i => i.id === "porkbelly");
+      if (k.includes("rodilla")) return INITIAL_ITEMS.find(i => i.id === "rodilla");
+      if (k.includes("primerib")) return INITIAL_ITEMS.find(i => i.id === "prime_ribs");
+      if (k.includes("asadodetira")) return INITIAL_ITEMS.find(i => i.id === "asado_tira");
+      if (k.includes("flatiron")) return INITIAL_ITEMS.find(i => i.id === "flat_iron");
+      if (k.includes("lomito")) return INITIAL_ITEMS.find(i => i.id === "lomito");
+      if (k.includes("pollo") || k.includes("churrasco")) return INITIAL_ITEMS.find(i => i.id === "pollo");
+      if (k.includes("cordero") || k.includes("rack")) return INITIAL_ITEMS.find(i => i.id === "cordero");
+      if (k.includes("ribeye") || k.includes("chuleton")) return INITIAL_ITEMS.find(i => i.id === "ribeye");
+      if (k.includes("tbone") || k.includes("porter")) return INITIAL_ITEMS.find(i => i.id === "tbone");
+      return null;
+    }
+
+    // Encuentra la hoja correcta y el mapa de columnas dentro del libro de Excel
+    function locatePlanningTable(workbook) {
+      for (let s = 0; s < workbook.SheetNames.length; s++) {
+        const sheetName = workbook.SheetNames[s];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
+        if (!rows || rows.length < 3) continue;
+
+        const maxScan = Math.min(rows.length, 20);
+        for (let r = 0; r < maxScan; r++) {
+          const headers = (rows[r] || []).map(cell => normKey(cell));
+          const colName = headers.findIndex(h => h.includes("corte") || (h.includes("producto") && !h.includes("cocido")));
+          const hasMerma = headers.some(h => h.includes("merma"));
+          const hasSalesOrInv = headers.some(h => h.includes("ventas") || h.includes("viernes") || h.includes("inventario") || h.includes("comprar"));
+
+          if (colName >= 0 && (hasMerma || hasSalesOrInv)) {
+            const col = {
+              name: colName,
+              purchasedRaw: headers.findIndex(h => h.includes("bruta") && h.includes("comprada")),
+              cleanRaw: headers.findIndex(h => h.includes("limpia") && (h.includes("cruda") || h.includes("pechobruto"))),
+              merma: headers.findIndex(h => h === "merma" || (h.includes("merma") && !h.includes("incluida") && !h.includes("bruta"))),
+              smokerIn: headers.findIndex(h => h.includes("entrada") || h.includes("ahumador")),
+              cookedTotal: headers.findIndex(h => h.includes("cocido") && h.includes("total")),
+              retazos: headers.findIndex(h => h.includes("retazos") || h.includes("puntas")),
+              cookedFirst: headers.findIndex(h => h.includes("calidad") || (h.includes("cocido") && h.includes("1a"))),
+              rendUtil: headers.findIndex(h => h.includes("rend") || h.includes("util")),
+              salesV: headers.findIndex(h => h.includes("viernes")),
+              salesS: headers.findIndex(h => h.includes("sabado")),
+              salesD: headers.findIndex(h => h.includes("domingo")),
+              salesTotal: headers.findIndex(h => h.includes("ventas") && (h.includes("totales") || h.includes("fds"))),
+              invRaw: headers.findIndex(h => (h.includes("cierre") && h.includes("crudo")) || (h.includes("inv") && h.includes("crudo"))),
+              invCooked: headers.findIndex(h => h.includes("inv") && h.includes("cocid"))
+            };
+
+            // Buscar texto de semana en las filas superiores al encabezado
+            let detectedWeek = "";
+            for (let top = 0; top < r; top++) {
+              const foundCell = (rows[top] || []).find(c => /semana/i.test(String(c || "")));
+              if (foundCell) {
+                detectedWeek = String(foundCell).trim();
+                break;
+              }
+            }
+
+            return { sheetName, rows, headerRowIdx: r, col, detectedWeek };
+          }
+        }
+      }
+      return null;
+    }
+
+    function handleExcelUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      if (typeof XLSX === "undefined") {
+        showToast("No se pudo cargar el lector de Excel. Verifica tu conexión a internet.", "error");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const located = locatePlanningTable(workbook);
+
+          if (!located) {
+            showToast("No encontré la tabla con encabezados 'Corte / Producto', 'Merma' y 'Ventas' en ese archivo.", "error");
+            return;
+          }
+
+          // Conservar los precios $/Kg que el usuario ya hubiera escrito previamente
+          const savedPrices = {};
+          items.forEach(it => { savedPrices[it.id] = Number(it.costPerKg) || 0; });
+
+          const rawRows = [];
+          const { rows, headerRowIdx, col } = located;
+
+          for (let r = headerRowIdx + 1; r < rows.length; r++) {
+            const row = rows[r];
+            if (!row || row.length === 0) continue;
+            const rawName = String(row[col.name] || "").trim();
+            if (!rawName || /^total\b/i.test(rawName) || /^subtotal\b/i.test(rawName)) continue;
+
+            const salesV = col.salesV >= 0 ? parseExcelNumber(row[col.salesV]) : 0;
+            const salesS = col.salesS >= 0 ? parseExcelNumber(row[col.salesS]) : 0;
+            const salesD = col.salesD >= 0 ? parseExcelNumber(row[col.salesD]) : 0;
+            const salesTot = col.salesTotal >= 0 ? parseExcelNumber(row[col.salesTotal]) : 0;
+
+            rawRows.push({
+              rawName,
+              purchasedRaw: col.purchasedRaw >= 0 ? parseExcelNumber(row[col.purchasedRaw]) : 0,
+              cleanRaw: col.cleanRaw >= 0 ? parseExcelNumber(row[col.cleanRaw]) : 0,
+              mermaPct: col.merma >= 0 ? parseExcelPercent(row[col.merma]) : 0,
+              smokerIn: col.smokerIn >= 0 ? parseExcelNumber(row[col.smokerIn]) : 0,
+              cookedTotal: col.cookedTotal >= 0 ? parseExcelNumber(row[col.cookedTotal]) : 0,
+              retazos: col.retazos >= 0 ? parseExcelNumber(row[col.retazos]) : 0,
+              cookedFirst: col.cookedFirst >= 0 ? parseExcelNumber(row[col.cookedFirst]) : 0,
+              rendUtilPct: col.rendUtil >= 0 ? parseExcelPercent(row[col.rendUtil]) : 0,
+              salesV,
+              salesS,
+              salesD: (salesV + salesS + salesD === 0 && salesTot > 0) ? salesTot : salesD,
+              invRaw: col.invRaw >= 0 ? parseExcelNumber(row[col.invRaw]) : 0,
+              invCooked: col.invCooked >= 0 ? parseExcelNumber(row[col.invCooked]) : 0
+            });
+          }
+
+          if (rawRows.length === 0) {
+            showToast("La tabla fue detectada pero no tenía filas con productos.", "error");
+            return;
+          }
+
+          // Auto-detectar si el Excel viene en gramos (ej. 25000) o ya en kilogramos (ej. 25)
+          let maxVal = 0;
+          let sumSales = 0;
+          rawRows.forEach(rr => {
+            maxVal = Math.max(maxVal, rr.purchasedRaw, rr.smokerIn, rr.invRaw, rr.salesV + rr.salesS + rr.salesD);
+            sumSales += (rr.salesV + rr.salesS + rr.salesD);
+          });
+          const isGrams = (sumSales > 500 || maxVal > 500);
+          const scale = isGrams ? 1000 : 1;
+
+          const parsedItems = rawRows.map((rr, idx) => {
+            const tpl = findTemplateItemForExcelRow(rr.rawName);
+            const id = tpl ? tpl.id : `custom_${idx}_${normKey(rr.rawName).slice(0, 12)}`;
+            const smokerInKg = rr.smokerIn / scale;
+            const invRawKg = rr.invRaw / scale;
+            const invCookedKg = rr.invCooked / scale;
+            const useSecondLoss = rr.mermaPct > 0 && rr.rendUtilPct > 0 && rr.rendUtilPct < 99;
+
+            return {
+              id,
+              name: rr.rawName,
+              shortName: tpl ? tpl.shortName : rr.rawName,
+              category: tpl ? tpl.category : (smokerInKg > 0 ? "AHUMADO" : "PARRILLA"),
+              supplier: tpl ? tpl.supplier : "Proveedor",
+              purchasedRaw: rr.purchasedRaw / scale,
+              cleanRaw: rr.cleanRaw / scale,
+              mermaPct: rr.mermaPct,
+              smokerIn: smokerInKg,
+              cookedTotal: rr.cookedTotal / scale,
+              retazos: rr.retazos / scale,
+              cookedFirst: rr.cookedFirst / scale,
+              excelSecondFactorPct: useSecondLoss ? rr.rendUtilPct : 0,
+              excelSecondFactorMode: useSecondLoss ? "loss" : "none",
+              salesV: rr.salesV / scale,
+              salesS: rr.salesS / scale,
+              salesD: rr.salesD / scale,
+              invRaw: invRawKg,
+              invCooked: invCookedKg,
+              costPerKg: savedPrices[id] || 0
+            };
+          });
+
+          items = parsedItems;
+          const cleanWeek = located.detectedWeek
+            ? located.detectedWeek.replace(/\s+/g, " ")
+            : `Archivo: ${file.name.replace(/\.[^.]+$/, "")}`;
+          const nowStr = new Date().toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          const computedCheck = items.map(computeMetrics);
+          const totalSalesKg = computedCheck.reduce((a, b) => a + b.projectedSales, 0);
+          const totalInvRawKg = computedCheck.reduce((a, b) => a + (Number(b.invRaw) || 0), 0);
+          const totalInvCookedKg = computedCheck.reduce((a, b) => a + (Number(b.invCooked) || 0), 0);
+          const totalNetBuyKg = computedCheck.reduce((a, b) => a + b.netToBuy, 0);
+
+          state.weekLabel = `${cleanWeek} • ${items.length} Proteínas (Cargado ${nowStr})`;
+          state.demandSource = `Excel: ${file.name} (${nowStr})`;
+          state.lastUpload = {
+            fileName: file.name,
+            sheetName: located.sheetName,
+            timeStr: nowStr,
+            unitInfo: isGrams ? "g → Kg" : "Kg",
+            count: items.length,
+            totalSalesKg,
+            totalInvRawKg,
+            totalInvCookedKg,
+            totalNetBuyKg
+          };
+          state.scenarioPct = 0;
+          saveState();
+          setScenario(0);
+
+          const unitMsg = isGrams ? " (auto-convertido g → Kg)" : " (en Kg)";
+          showToast(`✓ Leído "${file.name}" (${items.length} cortes • Neto: ${totalNetBuyKg.toFixed(2)} Kg)${unitMsg}`);
+        } catch (err) {
+          console.error("Error leyendo Excel:", err);
+          showToast("No se pudo leer el archivo Excel. Verifica que no tenga contraseña y guárdalo en .xlsx.", "error");
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function openWhatsAppModal() {
+      const computed = items.map(computeMetrics).filter(c => c.netToBuy > 0.05).sort((a, b) => b.netToBuy - a.netToBuy);
+      const totalKg = computed.reduce((a, b) => a + b.netToBuy, 0);
+      const totalCost = computed.reduce((a, b) => a + b.estCost, 0);
+      const scenTxt = state.scenarioPct === 0 ? "Base" : `${state.scenarioPct > 0 ? "+" : ""}${state.scenarioPct}%`;
+
+      let lines = [
+        `🔥 *PEDIDO DE PROTEÍNAS — 961 SMOKE HOUSE*`,
+        `📅 Proyección: ${state.demandSource} (${scenTxt})`,
+        `────────────────────────`,
+      ];
+
+      if (computed.length === 0) {
+        lines.push("✅ Todos los cortes están cubiertos con el inventario actual.");
+      } else {
+        computed.forEach(c => {
+          const costPart = c.estCost > 0 ? ` (~${fmtMoney(c.estCost)})` : "";
+          lines.push(`• *${c.shortName}*: ${c.netToBuy.toFixed(2)} Kg${costPart}`);
+        });
+        lines.push(`────────────────────────`);
+        lines.push(`📦 *TOTAL A PEDIR:* ${totalKg.toFixed(2)} Kg`);
+        if (totalCost > 0) lines.push(`💵 *PRESUPUESTO EST.:* ${fmtMoney(totalCost)}`);
+      }
+
+      const txt = lines.join("\n");
+      document.getElementById("whatsappTextArea").value = txt;
+      document.getElementById("btnOpenWaLink").href = `https://wa.me/?text=${encodeURIComponent(txt)}`;
+
+      const modal = document.getElementById("whatsappModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeWhatsAppModal() {
+      const modal = document.getElementById("whatsappModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function copyWhatsAppOrder() {
+      const ta = document.getElementById("whatsappTextArea");
+      ta.select();
+      ta.setSelectionRange(0, 99999);
+      try {
+        document.execCommand("copy");
+        showToast("Pedido copiado — listo para pegar en WhatsApp");
+      } catch (e) {
+        showToast("Selecciona y copia el texto manualmente", "error");
+      }
+    }
+
+    function exportPurchaseCSV() {
+      const computed = items.map(computeMetrics);
+      let csv = "Corte,Categoria,Ventas_FDS_Kg,Merma_Pct,Bruta_Necesaria_Kg,Inv_Crudo_Kg,Inv_Cocido_Kg,Neto_Comprar_Kg,Costo_USD_Kg,Presupuesto_USD\n";
+      computed.forEach(c => {
+        csv += `"${c.name}",${c.category},${c.projectedSales.toFixed(3)},${c.mermaPct.toFixed(2)},${c.grossNeeded.toFixed(3)},${Number(c.invRaw).toFixed(3)},${Number(c.invCooked).toFixed(3)},${c.netToBuy.toFixed(3)},${(c.costPerKg || 0).toFixed(2)},${c.estCost.toFixed(2)}\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `961_Plan_Compras_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      showToast("CSV de planificación descargado");
+    }
+
+    /**
+     * =========================================================================
+     * 6. CONEXIÓN DIRECTA OFICIAL (SIN PROXY) A TU GOOGLE SHEET DE VENTAS
+     * =========================================================================
+     */
+    function openSyncSalesModal() {
+      document.getElementById("syncModalFeedback").classList.add("hidden");
+      const modal = document.getElementById("syncSalesModal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeSyncSalesModal() {
+      const modal = document.getElementById("syncSalesModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function normKey(s) {
+      return String(s || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+    }
+
+    function fetchSalesFromGoogleSheet(mode) {
+      const fb = document.getElementById("syncModalFeedback");
+      fb.classList.remove("hidden");
+      fb.textContent = "Conectando con tu Google Sheet de ventas reales...";
+
+      const cbName = `__gvizCompras_${Date.now()}`;
+      const script = document.createElement("script");
+      let done = false;
+
+      const cleanup = () => {
+        done = true;
+        clearTimeout(timer);
+        try { delete window[cbName]; } catch (e) {}
+        if (script.parentNode) script.parentNode.removeChild(script);
+      };
+
+      const timer = setTimeout(() => {
+        if (done) return;
+        cleanup();
+        fb.textContent = "Tiempo agotado al leer Google Sheets. Verifica tu conexión a internet.";
+      }, 10000);
+
+      window[cbName] = function(res) {
+        if (done) return;
+        cleanup();
+        if (!res || res.status === "error" || !res.table) {
+          fb.textContent = "No se pudo leer la hoja Proteinas. Verifica que el enlace siga público en modo Lector.";
+          return;
+        }
+
+        const fdsMap = {};
+        const fdsOrder = [];
+
+        (res.table.rows || []).forEach(r => {
+          const c = r.c || [];
+          const fds = String(c[0]?.f || c[0]?.v || "").trim();
+          const prot = String(c[2]?.f || c[2]?.v || "").trim();
+          const v = Number(c[3]?.v) || 0;
+          const s = Number(c[4]?.v) || 0;
+          const d = Number(c[5]?.v) || 0;
+          if (!fds || !prot || /^fds$/i.test(fds)) return;
+
+          const itemId = SALES_SHEET_TO_PURCHASE_ID[normKey(prot)];
+          if (!itemId) return;
+
+          if (!fdsMap[fds]) {
+            fdsMap[fds] = {};
+            fdsOrder.push(fds);
+          }
+          if (!fdsMap[fds][itemId]) fdsMap[fds][itemId] = { V: 0, S: 0, D: 0 };
+          fdsMap[fds][itemId].V += v;
+          fdsMap[fds][itemId].S += s;
+          fdsMap[fds][itemId].D += d;
+        });
+
+        if (fdsOrder.length === 0) {
+          fb.textContent = "Se conectó al Sheet pero no se encontraron filas válidas en Proteinas.";
+          return;
+        }
+
+        const targetFdsList = mode === "LAST"
+          ? [fdsOrder[fdsOrder.length - 1]]
+          : fdsOrder.slice(-4);
+
+        const divisor = targetFdsList.length;
+
+        items.forEach(item => {
+          let sumV = 0, sumS = 0, sumD = 0;
+          targetFdsList.forEach(fdsKey => {
+            const entry = fdsMap[fdsKey]?.[item.id];
+            if (entry) {
+              sumV += entry.V;
+              sumS += entry.S;
+              sumD += entry.D;
+            }
+          });
+          if (item.id !== "asado_tira") {
+            item.salesV = Number((sumV / divisor).toFixed(3));
+            item.salesS = Number((sumS / divisor).toFixed(3));
+            item.salesD = Number((sumD / divisor).toFixed(3));
+          }
+        });
+
+        state.demandSource = mode === "LAST"
+          ? `Sheets Live: ${targetFdsList[0]}`
+          : `Sheets Live: Prom. últimos ${divisor} FDS`;
+        saveState();
+        renderAll();
+        closeSyncSalesModal();
+        showToast(`Demanda actualizada desde Google Sheets (${state.demandSource})`);
+      };
+
+      script.onerror = () => {
+        if (done) return;
+        cleanup();
+        fb.textContent = "Error cargando Google Sheets. Verifica tu conexión.";
+      };
+
+      script.src = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?gid=${GID_PROTEINAS}&headers=1&tqx=out:json;responseHandler:${cbName}&_ts=${Date.now()}`;
+      document.head.appendChild(script);
+    }
+
+    function restoreExcelDemand() {
+      INITIAL_ITEMS.forEach(orig => {
+        const cur = items.find(i => i.id === orig.id);
+        if (cur) {
+          cur.salesV = orig.salesV;
+          cur.salesS = orig.salesS;
+          cur.salesD = orig.salesD;
+        }
+      });
+      state.demandSource = "Base: Excel Sem 16.11–22.11";
+      saveState();
+      renderAll();
+      closeSyncSalesModal();
+      showToast("Demanda restaurada al Excel Semana 16.11–22.11");
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle("dark");
+      renderAll();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadState();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
